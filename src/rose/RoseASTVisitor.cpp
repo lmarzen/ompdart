@@ -1,0 +1,201 @@
+#include "RoseASTVisitor.h"
+
+#include "CommonUtils.h"
+
+using namespace clang;
+
+RoseASTVisitor::RoseASTVisitor(CompilerInstance *CI)
+    : Context(&(CI->getASTContext())),
+      SM(&(Context->getSourceManager())) {
+  LastTargetRegion = NULL;
+  LastFunction = NULL;
+}
+
+bool RoseASTVisitor::inLastTargetRegion(SourceLocation Loc) {
+  if (!LastTargetRegion)
+    return false;
+  return LastTargetRegion->contains(Loc);
+}
+
+bool RoseASTVisitor::inLastFunction(SourceLocation Loc) {
+  if (!LastFunction)
+    return false;
+  return LastFunction->contains(Loc);
+}
+
+std::vector<DataTracker *> &RoseASTVisitor::getFunctionTrackers() {
+  return FunctionTrackers;
+}
+
+std::vector<TargetRegion *> &RoseASTVisitor::getTargetRegions() {
+  return TargetRegions;
+}
+
+bool RoseASTVisitor::VisitFunctionDecl(FunctionDecl *FD) {
+  if (!FD->getBeginLoc().isValid()
+    || !SM->isInMainFile(FD->getLocation()))
+    return true;
+  if (!FD->doesThisDeclarationHaveABody())
+    return true;
+
+  DataTracker *Tracker = new DataTracker(FD, Context);
+  FunctionTrackers.push_back(Tracker);
+  LastFunction = Tracker;
+  return true;
+}
+
+bool RoseASTVisitor::VisitVarDecl(VarDecl *VD) {
+  if (!VD->getLocation().isValid()
+    || !SM->isInMainFile(VD->getLocation()))
+    return true;
+  if (inLastTargetRegion(VD->getLocation())) {
+    LastTargetRegion->recordPrivate(VD);
+    return true;
+  }
+
+  if (inLastFunction(VD->getLocation())) {
+    LastFunction->recordLocal(VD);
+    uint8_t Flags = VD->hasInit() ? A_WRONLY : A_NOP;
+    LastFunction->recordAccess(VD, VD->getLocation(), LastStmt, Flags, true);
+    return true;
+  }
+
+  return true;
+}
+
+bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
+  if (!CE->getBeginLoc().isValid()
+    || !SM->isInMainFile(CE->getBeginLoc()))
+    return true;
+  if (!inLastFunction(CE->getBeginLoc()))
+    return true;
+  FunctionDecl *Callee = CE->getDirectCallee();
+  if (!Callee)
+    return true;
+  
+  LastFunction->recordCallExpr(CE);
+  Expr **Args = CE->getArgs();
+
+  for (int I = 0; I < CE->getNumArgs(); ++I) {
+    DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreImpCasts());
+    QualType ParamType = Callee->getParamDecl(I)->getType();
+    if (!DRE) {
+      // is a literal
+      continue;
+    }
+    ValueDecl *VD = DRE->getDecl();
+    if ( (ParamType->isPointerType() || ParamType->isReferenceType() )
+      && !isPtrOrRefToConst(ParamType)) {
+      // passed by pointer/reference (to non-const)
+      LastFunction->recordAccess(VD, DRE->getLocation(), CE, A_UNKNOWN, true);
+    } else {
+      // passed by pointer/reference (to const) OR passed by value
+      LastFunction->recordAccess(VD, DRE->getLocation(), CE, A_RDONLY, true);
+    }
+  }
+
+  return true;
+}
+
+bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
+  if (!BO->getBeginLoc().isValid()
+    || !SM->isInMainFile(BO->getBeginLoc()))
+    return true;
+  if (!BO->isAssignmentOp())
+    return true;
+  if (!inLastFunction(BO->getBeginLoc()))
+    return true;
+
+  DeclRefExpr *DRE = getLeftmostDecl(BO);
+  ValueDecl *VD = DRE->getDecl();
+
+  // Check to see if this value is read from the right hand side.
+  if (BO->isCompoundAssignmentOp() || usedInStmt(BO->getRHS(), VD)) {
+    // If value is read from the right hand side, then technically this is a
+    // read, but chronologically it was read first. So mark as ReadWrite so that
+    // we don't mistake this ValueDecl for being Writen to first.
+    LastFunction->recordAccess(VD, DRE->getLocation(), BO, A_RDWR, true);
+  } else {
+    LastFunction->recordAccess(VD, DRE->getLocation(), BO, A_WRONLY, true);
+  }
+
+  return true;
+}
+
+bool RoseASTVisitor::VisitUnaryOperator(UnaryOperator *UO) {
+  if (!UO->getBeginLoc().isValid()
+    || !SM->isInMainFile(UO->getBeginLoc()))
+    return true;
+  if (!(UO->isPostfix() || UO->isPrefix()))
+    return true;
+  if (!inLastFunction(UO->getBeginLoc()))
+    return true;
+
+  DeclRefExpr *DRE = getLeftmostDecl(UO);
+  ValueDecl *VD = DRE->getDecl();
+  LastFunction->recordAccess(VD, DRE->getLocation(), UO, A_RDWR, true);
+  return true;
+}
+
+bool RoseASTVisitor::VisitDeclRefExpr(DeclRefExpr *DRE) {
+  if (!DRE->getBeginLoc().isValid()
+    || !SM->isInMainFile(DRE->getBeginLoc()))
+    return true;
+  if (!inLastFunction(DRE->getBeginLoc()))
+    return true;
+  ValueDecl *VD = DRE->getDecl();
+  if (!VD)
+    return true;
+  if (dyn_cast<clang::FunctionDecl>(VD))
+    return true;
+
+  LastFunction->recordAccess(VD, DRE->getLocation(), DRE, A_RDONLY, false);
+  return true;
+}
+
+bool RoseASTVisitor::VisitDoStmt(DoStmt *DS) {
+  if (!DS->getBeginLoc().isValid()
+    || !SM->isInMainFile(DS->getBeginLoc()))
+    return true;
+  if (!inLastFunction(DS->getBeginLoc()))
+    return true;
+
+  LastFunction->recordLoop(DS);
+  return true;
+}
+
+bool RoseASTVisitor::VisitForStmt(ForStmt *FS) {
+  if (!FS->getBeginLoc().isValid()
+    || !SM->isInMainFile(FS->getBeginLoc()))
+    return true;
+  if (!inLastFunction(FS->getBeginLoc()))
+    return true;
+
+  LastFunction->recordLoop(FS);
+  return true;
+}
+
+bool RoseASTVisitor::VisitWhileStmt(WhileStmt *WS) {
+  if (!WS->getBeginLoc().isValid()
+    || !SM->isInMainFile(WS->getBeginLoc()))
+    return true;
+  if (!inLastFunction(WS->getBeginLoc()))
+    return true;
+
+  LastFunction->recordLoop(WS);
+  return true;
+}
+
+bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
+  // Ignore if the statement is in System Header files
+  if (!S->getBeginLoc().isValid() ||
+      !SM->isInMainFile(S->getBeginLoc()))
+    return true;
+  if (!isaTargetKernel(S))
+    return true;
+
+  LastTargetRegion = new TargetRegion(S, LastFunction->getDecl());
+  FunctionTrackers.back()->recordTargetRegion(LastTargetRegion);
+  TargetRegions.push_back(LastTargetRegion);
+  return true;
+}
