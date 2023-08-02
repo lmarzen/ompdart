@@ -33,15 +33,6 @@ private:
                                    const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
                                    const std::vector<uint8_t> &GlobalFlags);
   const Stmt *findOutermostCapturingStmt(Stmt *ContainingStmt, Stmt *S);
-      // TreeNode<Stmt *> *FindParentLoop(Stmt *S);
-  std::vector<AccessInfo>::iterator find(
-      std::vector<AccessInfo>::iterator First,
-      std::vector<AccessInfo>::iterator Last,
-      ValueDecl *Value,
-      unsigned int ModeMask=0, unsigned int Flags=0);
-  void findAccessLogEntry(std::vector<AccessInfo>::iterator &It,
-                         std::vector<TargetRegion *>::iterator &TR, 
-                         ValueDecl *TargetVD);
   int insertAccessLogEntry(const AccessInfo &NewEntry);
   void analyzeValueDecl(ValueDecl *VD);
 

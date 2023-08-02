@@ -102,8 +102,9 @@ const std::vector<AccessInfo> &DataTracker::getAccessLog() {
   return AccessLog;
 }
 
-// Update reads/writes that may have happened on by the Callee parameters passed
-// by pointer.
+/* Update reads/writes that may have happened on by the Callee parameters passed
+ * by pointer.
+*/
 int DataTracker::updateParamsTouchedByCallee(FunctionDecl *Callee,
                                              const std::vector<CallExpr *> &Calls,
                                              const std::vector<uint8_t> &ParamModes) {
@@ -139,8 +140,9 @@ int DataTracker::updateParamsTouchedByCallee(FunctionDecl *Callee,
   return numUpdates;
 }
 
-// Update reads/writes that may have occurred by the Callee on global variables.
-// We will need to insert these into our own AccessLog.
+/* Update reads/writes that may have occurred by the Callee on global variables.
+ * We will need to insert these into our own AccessLog.
+ */
 int DataTracker::updateGlobalsTouchedByCallee(FunctionDecl *Callee,
                                               const std::vector<CallExpr *> &Calls,
                                               const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
@@ -327,61 +329,6 @@ const Stmt *DataTracker::findOutermostCapturingStmt(Stmt *ContainingStmt, Stmt *
     CurrentStmt = ParentStmt;
   }
 }
-
-#include <sys/time.h> // TODO remove timer
-
-// Returns an iterator to the first element in the range [first, last) that
-// is executed by the host and satisfies specific criteria (or last if there is
-// no such iterator).
-std::vector<AccessInfo>::iterator DataTracker::find(
-    std::vector<AccessInfo>::iterator First,
-    std::vector<AccessInfo>::iterator Last,
-    ValueDecl *Value, 
-    unsigned int ModeMask, unsigned int Flags) {
-  auto TR = TargetRegions.begin();
-  auto It = First;
-  while (It != Last) {
-    // iterate to find current/next target region
-    while (TR != TargetRegions.end() && (*TR)->AccessLogEnd < It) {
-      ++TR;
-    }
-    if (TR != TargetRegions.end()
-     && (*TR)->AccessLogBegin == It)
-    { // fast forward It to end of target region
-      It = (*TR)->AccessLogEnd;
-      continue;
-    }
-    if (It->VD == Value 
-     && (It->Flags & ModeMask) == Flags)
-    {
-      return It;
-    }
-    ++It;
-  }
-  return Last;
-}
-
-/* Advances It to next access entry of TargetVD. TR is advanced if necessary to
- * point to the current or next TargetRegion. It and TR are set to
- * AccessLog.end() and TargetRegions.end() once the end of their respective
- * vectors is reached.
- */
-void DataTracker::findAccessLogEntry(std::vector<AccessInfo>::iterator &It,
-                                    std::vector<TargetRegion *>::iterator &TR,
-                                    ValueDecl *TargetVD) {
-  while (It != AccessLog.end()) {
-    // iterate to find current/next target region
-    while (TR != TargetRegions.end() && (*TR)->AccessLogEnd->Loc < It->Loc) {
-      ++TR;
-    }
-    if (It->VD == TargetVD)
-      return;
-
-    ++It;
-  }
-  return;
-}
-
 
 /* Naive approach. Single target region analysis only.
  */
