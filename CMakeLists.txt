@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.20.0)
 project(rose)
 
 set(CMAKE_C_COMPILER "clang")
@@ -20,12 +20,12 @@ add_definitions(
 )
 include_directories(
   ${LLVM_INCLUDE_DIRS} 
-  ${CLANG_INCLUDE_DIRS} 
   ${LibClangTooling_INCLUDE_DIRS}
 )
 
-# Compiler flags
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+# Use the same C++ standard as LLVM
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "")
+
 set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
 
 # LLVM/Clang is normally built without RTTI. Be consistent with that.
