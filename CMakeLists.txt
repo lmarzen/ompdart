@@ -1,27 +1,13 @@
 cmake_minimum_required(VERSION 3.20.0)
 project(rose)
 
-set(CMAKE_C_COMPILER "clang")
-set(CMAKE_CXX_COMPILER "clang++")
-
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+find_package(Clang REQUIRED CONFIG)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
-list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-include(AddLLVM)
-
-find_package(LibClangTooling REQUIRED)
-
-add_definitions(
-  ${LLVM_DEFINITIONS} 
-  ${LibClangTooling_DEFINITIONS}
-)
-include_directories(
-  ${LLVM_INCLUDE_DIRS} 
-  ${LibClangTooling_INCLUDE_DIRS}
-)
+set(CMAKE_C_COMPILER "clang")
+set(CMAKE_CXX_COMPILER "clang++")
 
 # Use the same C++ standard as LLVM
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "")

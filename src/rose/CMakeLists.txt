@@ -10,12 +10,3 @@ add_library(rose MODULE
     TargetDataScope.cpp
     TargetRegion.cpp
 )
-
-if(LLVM_ENABLE_PLUGINS AND (WIN32 OR CYGWIN))
-    target_link_libraries(rose PRIVATE
-        clangAST
-        clangBasic
-        clangFrontend
-        LLVMSupport
-    )
-endif()
