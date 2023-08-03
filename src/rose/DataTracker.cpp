@@ -615,7 +615,7 @@ std::vector<uint8_t> DataTracker::getParamAccessModes() const {
 
     int Flags = A_NOP;
     for (AccessInfo Entry : AccessLog) {
-      if (Entry.VD->getID() == Params[I]->getID())
+      if (Entry.VD && Entry.VD->getID() == Params[I]->getID())
         Flags |= Entry.Flags;
     }
     // clear offloaded flag
@@ -634,7 +634,7 @@ std::vector<uint8_t> DataTracker::getGlobalAccessModes() const {
   for (ValueDecl *Global : Globals) {
     int Flags = A_NOP;
     for (AccessInfo Entry : AccessLog) {
-      if (Entry.VD->getID() == Global->getID())
+      if (Entry.VD && Entry.VD->getID() == Global->getID())
         Flags |= Entry.Flags;
     }
     // clear offloaded flag

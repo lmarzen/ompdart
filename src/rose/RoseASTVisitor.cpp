@@ -76,7 +76,7 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
   LastFunction->recordCallExpr(CE);
   Expr **Args = CE->getArgs();
 
-  for (int I = 0; I < CE->getNumArgs(); ++I) {
+  for (int I = 0; I < Callee->getNumParams(); ++I) {
     DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreImpCasts());
     QualType ParamType = Callee->getParamDecl(I)->getType();
     if (!DRE) {

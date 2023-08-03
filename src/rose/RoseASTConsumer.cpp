@@ -50,7 +50,6 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     llvm::outs() << "locals\n";
     for (auto Local : DT->getLocals()) {
       llvm::outs() << "  " << Local->getNameAsString() << "\n";
-          TheRewriter.InsertTextBefore(Local->getBeginLoc(),"/* test */");
     }
   }
 
