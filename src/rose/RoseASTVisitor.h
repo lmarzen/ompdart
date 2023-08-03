@@ -31,6 +31,7 @@ public:
   std::vector<DataTracker *> &getFunctionTrackers();
   std::vector<TargetRegion *> &getTargetRegions(); 
 
+  virtual bool VisitStmt(Stmt *S);
   virtual bool VisitFunctionDecl(FunctionDecl *FD);
   virtual bool VisitVarDecl(VarDecl *VD);
   virtual bool VisitCallExpr(CallExpr *CE);

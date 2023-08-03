@@ -21,14 +21,13 @@ private:
   boost::container::flat_set<ValueDecl *> MapAlloc;
   boost::container::flat_set<ValueDecl *> ReadDecls;
   boost::container::flat_set<ValueDecl *> WriteDecls;
-  // These variables are already present in the device's data environment,
-  // indicating that no mapping is necessary.
-  boost::container::flat_set<ValueDecl *> PreExistingData;
 
-  // will update maps
-  friend class DataTracker;
   std::vector<AccessInfo>::iterator AccessLogBegin;
   std::vector<AccessInfo>::iterator AccessLogEnd;
+
+  std::vector<OMPExecutableDirective *> NestedDirectives;
+
+  friend class DataTracker; // will update this class directly
 
 public:
   TargetRegion(OMPExecutableDirective *TD, FunctionDecl *FD);
@@ -43,6 +42,7 @@ public:
   int recordPrivate(ValueDecl *VD);
   const boost::container::flat_set<ValueDecl *> &getPrivateDecls() const;
   bool isPrivate(ValueDecl *VD) const;
+  int recordNestedDirective(OMPExecutableDirective *TD);
   void print(llvm::raw_ostream &OS, const SourceManager &SM) const;
   
   const boost::container::flat_set<ValueDecl *> &getMapTo() const;

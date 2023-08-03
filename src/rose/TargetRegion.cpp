@@ -41,10 +41,16 @@ bool TargetRegion::isPrivate(ValueDecl *VD) const {
   return PrivateDecls.contains(VD);
 }
 
+int TargetRegion::recordNestedDirective(OMPExecutableDirective *TD) {
+  NestedDirectives.push_back(TD);
+  return 1;
+}
+
 void TargetRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
   OS << "\n|-- Function: " << FD->getNameAsString();
   OS << "\n|-- Location: ";
   TD->getBeginLoc().print(OS, SM);
+  TD->getEndLoc().print(OS, SM);
   OS << "\n|   |-- InnermostCapturedStmt";
   OS << "\n|   |   |-- BeginLoc: ";
   TD->getInnermostCapturedStmt()->getBeginLoc().print(OS, SM);

@@ -31,6 +31,11 @@ std::vector<TargetRegion *> &RoseASTVisitor::getTargetRegions() {
   return TargetRegions;
 }
 
+bool RoseASTVisitor::VisitStmt(Stmt *S) {
+  LastStmt = S;
+  return true;
+}
+
 bool RoseASTVisitor::VisitFunctionDecl(FunctionDecl *FD) {
   if (!FD->getBeginLoc().isValid()
     || !SM->isInMainFile(FD->getLocation()))
@@ -191,11 +196,16 @@ bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
   if (!S->getBeginLoc().isValid() ||
       !SM->isInMainFile(S->getBeginLoc()))
     return true;
-  if (!isaTargetKernel(S))
+  if (isaTargetKernel(S)) {
+    LastTargetRegion = new TargetRegion(S, LastFunction->getDecl());
+    LastFunction->recordTargetRegion(LastTargetRegion);
+    TargetRegions.push_back(LastTargetRegion);
     return true;
-
-  LastTargetRegion = new TargetRegion(S, LastFunction->getDecl());
-  FunctionTrackers.back()->recordTargetRegion(LastTargetRegion);
-  TargetRegions.push_back(LastTargetRegion);
+  }
+  if (TargetRegions.size() > 0
+   && TargetRegions.back()->contains(S->getBeginLoc())) {
+    llvm::outs() << "nested dir at" << S->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
+    TargetRegions.back()->recordNestedDirective(S);
+  }
   return true;
 }

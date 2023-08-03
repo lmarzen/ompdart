@@ -65,11 +65,24 @@ int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
     // as the duplicate will have the same location as the directive statement.
     // Additionally, clang may create temporary variables when using openmp
     // target directives. These can be filtered out by ignoring all variables
-    // that have names that begin with a period(.).
-    if (LastTargetRegion->getDirective()->getBeginLoc() == VD->getBeginLoc()
-     || VD->getNameAsString()[0] == '.') {
-      llvm::outs() << "\nIgnoring: " << VD->getNameAsString() << " " << VD->getID();
+    // that have names that begin with a period(.). Any variables used in any
+    // nested directive must be ignored here.
+    if (VD->getNameAsString()[0] == '.')
       return 0;
+
+    if (LastTargetRegion->getDirective()->getBeginLoc() <= VD->getBeginLoc()
+     && VD->getBeginLoc() < LastTargetRegion->getDirective()->getEndLoc())
+      return 0;
+
+    if (LastTargetRegion->getDirective()->getBeginLoc() <= Loc
+     && Loc < LastTargetRegion->getDirective()->getEndLoc())
+      return 0;
+
+    if (LastTargetRegion->NestedDirectives.size() > 0) {
+      auto *NestedDir = LastTargetRegion->NestedDirectives.back();
+      if (NestedDir->getBeginLoc() <= Loc
+       && Loc < NestedDir->getEndLoc())
+        return 0;
     }
 
     if (LastTargetRegion->contains(Loc)) 
