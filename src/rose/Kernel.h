@@ -1,5 +1,5 @@
-#ifndef TARGETREGION_H
-#define TARGETREGION_H
+#ifndef KERNEL_H
+#define KERNEL_H
 
 #include <boost/container/flat_set.hpp>
 
@@ -9,7 +9,7 @@
 
 using namespace clang;
 
-class TargetRegion {
+class Kernel {
 private:
   OMPExecutableDirective *TD;
   FunctionDecl *FD;
@@ -30,7 +30,7 @@ private:
   friend class DataTracker; // will update this class directly
 
 public:
-  TargetRegion(OMPExecutableDirective *TD, FunctionDecl *FD);
+  Kernel(OMPExecutableDirective *TD, FunctionDecl *FD);
 
   OMPExecutableDirective *getDirective() const;
   FunctionDecl *getFunction() const;

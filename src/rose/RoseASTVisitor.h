@@ -16,10 +16,10 @@ private:
   // each DataTracker keeps track of data access within the scope of a single
   // function
   std::vector<DataTracker *> FunctionTrackers;
-  std::vector<TargetRegion *> TargetRegions;
+  std::vector<Kernel *> Kernels;
 
   DataTracker *LastFunction;
-  TargetRegion *LastTargetRegion;
+  Kernel *LastKernel;
   Stmt *LastStmt;
 
   bool inLastTargetRegion(SourceLocation Loc);
@@ -29,7 +29,7 @@ public:
   explicit RoseASTVisitor(CompilerInstance *CI);
 
   std::vector<DataTracker *> &getFunctionTrackers();
-  std::vector<TargetRegion *> &getTargetRegions(); 
+  std::vector<Kernel *> &getTargetRegions(); 
 
   virtual bool VisitStmt(Stmt *S);
   virtual bool VisitFunctionDecl(FunctionDecl *FD);

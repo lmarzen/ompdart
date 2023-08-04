@@ -5,8 +5,8 @@
 
 #include <boost/container/flat_set.hpp>
 
-#include "TargetDataScope.h"
-#include "TargetRegion.h"
+#include "TargetDataRegion.h"
+#include "Kernel.h"
 
 using namespace clang;
 
@@ -14,11 +14,11 @@ class DataTracker {
 private:
   FunctionDecl *FD;
   ASTContext *Context; 
-  TargetRegion *LastTargetRegion;
-  TargetDataScope *TargetScope;
+  Kernel *LastKernel;
+  TargetDataRegion *TargetScope;
 
   std::vector<AccessInfo> AccessLog;
-  std::vector<TargetRegion *> TargetRegions;
+  std::vector<Kernel *> Kernels;
   std::vector<Stmt *> Loops;
   std::vector<CallExpr *> CallExprs;
   boost::container::flat_set<ValueDecl *> Locals;
@@ -54,15 +54,15 @@ public:
                             const std::vector<uint8_t> &GlobalFlags);
   void printAccessLog() const;
 
-  int recordTargetRegion(TargetRegion *TR);
+  int recordTargetRegion(Kernel *K);
   int recordCallExpr(CallExpr *CE);
   int recordLoop(Stmt *S);
   int recordLocal(ValueDecl *VD);
 
-  const std::vector<TargetRegion *> &getTargetRegions() const;
+  const std::vector<Kernel *> &getTargetRegions() const;
   const std::vector<CallExpr *> &getCallExprs() const;
   const std::vector<Stmt *> &getLoops() const;
-  const TargetDataScope *getTargetDataScope() const;
+  const TargetDataRegion *getTargetDataScope() const;
   const boost::container::flat_set<ValueDecl *> &getLocals() const;
   const boost::container::flat_set<ValueDecl *> &getGlobals() const;
 

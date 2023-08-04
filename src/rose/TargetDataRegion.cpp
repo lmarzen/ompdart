@@ -1,24 +1,24 @@
-#include "TargetDataScope.h"
+#include "TargetDataRegion.h"
 
 using namespace clang;
 
-TargetDataScope::TargetDataScope(SourceLocation BeginLoc, SourceLocation EndLoc,
-                                 FunctionDecl *FD)
+TargetDataRegion::TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc,
+                                   FunctionDecl *FD)
     : BeginLoc(BeginLoc), EndLoc(EndLoc), FD(FD) {}
 
-SourceLocation TargetDataScope::getBeginLoc() const {
+SourceLocation TargetDataRegion::getBeginLoc() const {
   return BeginLoc;
 }
 
-SourceLocation TargetDataScope::getEndLoc() const {
+SourceLocation TargetDataRegion::getEndLoc() const {
   return EndLoc;
 }
 
-FunctionDecl *TargetDataScope::getContainingFunction() const {
+FunctionDecl *TargetDataRegion::getContainingFunction() const {
   return FD;
 }
 
-void TargetDataScope::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
+void TargetDataRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
   llvm::outs() << "\n|-- Location: ";
   BeginLoc.print(llvm::outs(), SM);
   llvm::outs() << "\n|             ";
@@ -72,26 +72,26 @@ void TargetDataScope::print(llvm::raw_ostream &OS, const SourceManager &SM) cons
   return;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataScope::getMapTo() const {
+const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapTo() const {
   return MapTo;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataScope::getMapFrom() const {
+const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapFrom() const {
   return MapFrom;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataScope::getMapToFrom() const {
+const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapToFrom() const {
   return MapToFrom;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataScope::getMapAlloc() const {
+const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapAlloc() const {
   return MapAlloc;
 }
 
-const boost::container::flat_set<AccessInfo> &TargetDataScope::getUpdateTo() const {
+const boost::container::flat_set<AccessInfo> &TargetDataRegion::getUpdateTo() const {
   return UpdateTo;
 }
 
-const boost::container::flat_set<AccessInfo> &TargetDataScope::getUpdateFrom() const {
+const boost::container::flat_set<AccessInfo> &TargetDataRegion::getUpdateFrom() const {
   return UpdateFrom;
 }

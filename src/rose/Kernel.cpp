@@ -1,52 +1,52 @@
-#include "TargetRegion.h"
+#include "Kernel.h"
 
 using namespace clang;
 
-TargetRegion::TargetRegion(OMPExecutableDirective *TD, FunctionDecl *FD) 
+Kernel::Kernel(OMPExecutableDirective *TD, FunctionDecl *FD) 
   : TD(TD), FD(FD) {}
 
-OMPExecutableDirective *TargetRegion::getDirective() const {
+OMPExecutableDirective *Kernel::getDirective() const {
   return TD;
 }
 
-FunctionDecl *TargetRegion::getFunction() const {
+FunctionDecl *Kernel::getFunction() const {
   return FD;
 }
 
-bool TargetRegion::contains(SourceLocation Loc) const {
+bool Kernel::contains(SourceLocation Loc) const {
   CapturedStmt *CS = TD->getInnermostCapturedStmt();
   SourceLocation CSBeginLoc = CS->getBeginLoc();
   SourceLocation CSEndLoc = CS->getEndLoc();
   return (CSBeginLoc <= Loc) && (Loc <= CSEndLoc);
 }
 
-SourceLocation TargetRegion::getBeginLoc() const {
+SourceLocation Kernel::getBeginLoc() const {
   return TD->getInnermostCapturedStmt()->getBeginLoc();
 }
 
-SourceLocation TargetRegion::getEndLoc() const {
+SourceLocation Kernel::getEndLoc() const {
   return TD->getInnermostCapturedStmt()->getEndLoc();
 }
 
-int TargetRegion::recordPrivate(ValueDecl *VD) {
+int Kernel::recordPrivate(ValueDecl *VD) {
   PrivateDecls.insert(VD);
   return 1;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetRegion::getPrivateDecls() const {
+const boost::container::flat_set<ValueDecl *> &Kernel::getPrivateDecls() const {
   return PrivateDecls;
 }
 
-bool TargetRegion::isPrivate(ValueDecl *VD) const {
+bool Kernel::isPrivate(ValueDecl *VD) const {
   return PrivateDecls.contains(VD);
 }
 
-int TargetRegion::recordNestedDirective(OMPExecutableDirective *TD) {
+int Kernel::recordNestedDirective(OMPExecutableDirective *TD) {
   NestedDirectives.push_back(TD);
   return 1;
 }
 
-void TargetRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
+void Kernel::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
   OS << "\n|-- Function: " << FD->getNameAsString();
   OS << "\n|-- Location: ";
   TD->getBeginLoc().print(OS, SM);
@@ -98,16 +98,16 @@ void TargetRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
   return;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetRegion::getMapTo() const {
+const boost::container::flat_set<ValueDecl *> &Kernel::getMapTo() const {
   return MapTo;
 }
-const boost::container::flat_set<ValueDecl *> &TargetRegion::getMapFrom() const {
+const boost::container::flat_set<ValueDecl *> &Kernel::getMapFrom() const {
   return MapFrom;
 }
-const boost::container::flat_set<ValueDecl *> &TargetRegion::getMapToFrom() const {
+const boost::container::flat_set<ValueDecl *> &Kernel::getMapToFrom() const {
   return MapToFrom;
 }
-const boost::container::flat_set<ValueDecl *> &TargetRegion::getMapAlloc() const {
+const boost::container::flat_set<ValueDecl *> &Kernel::getMapAlloc() const {
   return MapAlloc;
 }
 

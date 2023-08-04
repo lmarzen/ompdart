@@ -19,7 +19,7 @@ DataTracker::DataTracker(FunctionDecl *FD, ASTContext *Context) {
   for (ValueDecl *Param : FD->parameters()) {
     this->Locals.insert(Param);
   }
-  this->LastTargetRegion = NULL;
+  this->LastKernel = NULL;
   this->TargetScope = NULL;
 };
 
@@ -55,9 +55,9 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
 
 int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
                               uint8_t Flags, bool overwrite) {
-  if (LastTargetRegion) {
+  if (LastKernel) {
     // Don't record private data.
-    if (LastTargetRegion->isPrivate(VD))
+    if (LastKernel->isPrivate(VD))
       return 0;
 
     // Clang duplicates references when they are declared in function parameters
@@ -70,22 +70,22 @@ int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
     if (VD->getNameAsString()[0] == '.')
       return 0;
 
-    if (LastTargetRegion->getDirective()->getBeginLoc() <= VD->getBeginLoc()
-     && VD->getBeginLoc() < LastTargetRegion->getDirective()->getEndLoc())
+    if (LastKernel->getDirective()->getBeginLoc() <= VD->getBeginLoc()
+     && VD->getBeginLoc() < LastKernel->getDirective()->getEndLoc())
       return 0;
 
-    if (LastTargetRegion->getDirective()->getBeginLoc() <= Loc
-     && Loc < LastTargetRegion->getDirective()->getEndLoc())
+    if (LastKernel->getDirective()->getBeginLoc() <= Loc
+     && Loc < LastKernel->getDirective()->getEndLoc())
       return 0;
 
-    if (LastTargetRegion->NestedDirectives.size() > 0) {
-      auto *NestedDir = LastTargetRegion->NestedDirectives.back();
+    if (LastKernel->NestedDirectives.size() > 0) {
+      auto *NestedDir = LastKernel->NestedDirectives.back();
       if (NestedDir->getBeginLoc() <= Loc
        && Loc < NestedDir->getEndLoc())
         return 0;
     }
 
-    if (LastTargetRegion->contains(Loc)) 
+    if (LastKernel->contains(Loc)) 
       Flags |= A_OFFLD;
   }
 
@@ -262,9 +262,9 @@ void DataTracker::printAccessLog() const {
   return;
 }
 
-int DataTracker::recordTargetRegion(TargetRegion *TR) {
-  LastTargetRegion = TR;
-  TargetRegions.push_back(TR);
+int DataTracker::recordTargetRegion(Kernel *K) {
+  LastKernel = K;
+  Kernels.push_back(K);
   return 1;
 }
 
@@ -275,7 +275,7 @@ int DataTracker::recordCallExpr(CallExpr *CE) {
 
 int DataTracker::recordLoop(Stmt *S) {
   // Don't record loops inside a target region
-  if (LastTargetRegion != NULL && LastTargetRegion->contains(S->getBeginLoc()))
+  if (LastKernel != NULL && LastKernel->contains(S->getBeginLoc()))
     return 0;
 
   Loops.push_back(S);
@@ -302,8 +302,8 @@ int DataTracker::recordGlobal(ValueDecl *VD) {
   return 1;
 }
 
-const std::vector<TargetRegion *> &DataTracker::getTargetRegions() const {
-  return TargetRegions;
+const std::vector<Kernel *> &DataTracker::getTargetRegions() const {
+  return Kernels;
 }
 
 const std::vector<CallExpr *> &DataTracker::getCallExprs() const {
@@ -314,7 +314,7 @@ const std::vector<Stmt *> &DataTracker::getLoops() const {
   return Loops;
 }
 
-const TargetDataScope *DataTracker::getTargetDataScope() const {
+const TargetDataRegion *DataTracker::getTargetDataScope() const {
   return TargetScope;
 }
 
@@ -347,35 +347,35 @@ const Stmt *DataTracker::findOutermostCapturingStmt(Stmt *ContainingStmt, Stmt *
  */
 void DataTracker::naiveAnalyze() {
   // Find target region bounds.
-  for (TargetRegion *TR : TargetRegions) {
+  for (Kernel *K : Kernels) {
     AccessInfo Lower, Upper;
-    Lower.Loc = TR->getBeginLoc();
-    Upper.Loc = TR->getEndLoc();
-    TR->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
-    TR->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
+    Lower.Loc = K->getBeginLoc();
+    Upper.Loc = K->getEndLoc();
+    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
+    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
   }
 
-  for (TargetRegion *TR : TargetRegions) {
+  for (Kernel *K : Kernels) {
     // Seperate reads and writes into their own sets.
-    TR->ReadDecls.clear();
-    TR->WriteDecls.clear();
-    for (auto It = TR->AccessLogBegin; It != TR->AccessLogEnd; ++It) {
+    K->ReadDecls.clear();
+    K->WriteDecls.clear();
+    for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
       switch (It->Flags & 0b00000111)
       {
       case A_RDONLY:
         // Here we only want to map to if a variable was read before being
         // written to. This is more aggressive for arrays since the whole array
         // may not have been rewritten.
-        if (!TR->WriteDecls.contains(It->VD))
-          TR->ReadDecls.insert(It->VD);
+        if (!K->WriteDecls.contains(It->VD))
+          K->ReadDecls.insert(It->VD);
         break;
       case A_WRONLY:
-        TR->WriteDecls.insert(It->VD);
+        K->WriteDecls.insert(It->VD);
         break;
       case A_UNKNOWN:
       case A_RDWR:
-        TR->ReadDecls.insert(It->VD);
-        TR->WriteDecls.insert(It->VD);
+        K->ReadDecls.insert(It->VD);
+        K->WriteDecls.insert(It->VD);
         break;
       case A_NOP:
       default:
@@ -383,15 +383,15 @@ void DataTracker::naiveAnalyze() {
       }
     }
 
-    std::set_difference(TR->ReadDecls.begin(), TR->ReadDecls.end(),
-                        TR->WriteDecls.begin(), TR->WriteDecls.end(),
-                        std::inserter(TR->MapTo, TR->MapTo.begin()));
-    std::set_difference(TR->WriteDecls.begin(), TR->WriteDecls.end(),
-                        TR->ReadDecls.begin(), TR->ReadDecls.end(),
-                        std::inserter(TR->MapFrom, TR->MapFrom.begin()));
-    std::set_intersection(TR->ReadDecls.begin(), TR->ReadDecls.end(),
-                          TR->WriteDecls.begin(), TR->WriteDecls.end(),
-                          std::inserter(TR->MapToFrom, TR->MapToFrom.begin()));
+    std::set_difference(K->ReadDecls.begin(), K->ReadDecls.end(),
+                        K->WriteDecls.begin(), K->WriteDecls.end(),
+                        std::inserter(K->MapTo, K->MapTo.begin()));
+    std::set_difference(K->WriteDecls.begin(), K->WriteDecls.end(),
+                        K->ReadDecls.begin(), K->ReadDecls.end(),
+                        std::inserter(K->MapFrom, K->MapFrom.begin()));
+    std::set_intersection(K->ReadDecls.begin(), K->ReadDecls.end(),
+                          K->WriteDecls.begin(), K->WriteDecls.end(),
+                          std::inserter(K->MapToFrom, K->MapToFrom.begin()));
   }
 
   return;
@@ -570,24 +570,24 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
 }
 
 void DataTracker::analyze() {
-  if (TargetRegions.size() == 0) {
+  if (Kernels.size() == 0) {
     // There is nothing to analyze.
     return;
   }
 
   // Find target region bounds.
-  for (TargetRegion *TR : TargetRegions) {
+  for (Kernel *K : Kernels) {
     AccessInfo Lower, Upper;
-    Lower.Loc = TR->getBeginLoc();
-    Upper.Loc = TR->getEndLoc();
-    TR->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
-    TR->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
+    Lower.Loc = K->getBeginLoc();
+    Upper.Loc = K->getEndLoc();
+    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
+    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
   }
 
   // Identify the root(outermost) target scope in the function.
-  const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), TargetRegions[0]->getDirective());
+  const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
   SourceLocation ScopeBegin = FrontCapturingStmt->getBeginLoc();
-  const Stmt *BackCapturingStmt  = findOutermostCapturingStmt(FD->getBody(), TargetRegions.back()->getDirective());
+  const Stmt *BackCapturingStmt  = findOutermostCapturingStmt(FD->getBody(), Kernels.back()->getDirective());
   SourceLocation ScopeEnd = BackCapturingStmt->getEndLoc();
   if (auto OpenMPDirective = dyn_cast<OMPExecutableDirective>(BackCapturingStmt)) {
     // ugh. The getEndLoc() of OpenMP directives is different and doesn't
@@ -596,7 +596,7 @@ void DataTracker::analyze() {
     ScopeEnd = OpenMPDirective->getInnermostCapturedStmt()->getEndLoc();
   }
 
-  TargetScope = new TargetDataScope(ScopeBegin, ScopeEnd, FD);
+  TargetScope = new TargetDataRegion(ScopeBegin, ScopeEnd, FD);
 
   // Map a list of all the data the TargetScope will be responsible for.
   boost::container::flat_set<ValueDecl *> TargetScopeDecls;

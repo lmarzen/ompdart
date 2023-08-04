@@ -14,7 +14,7 @@ class RoseASTConsumer : public ASTConsumer {
   Rewriter TheRewriter;
 
   std::vector<DataTracker *> &FunctionTrackers;
-  std::vector<TargetRegion *> &TargetRegions;
+  std::vector<Kernel *> &Kernels;
 
 public:
   explicit RoseASTConsumer(CompilerInstance *CI);

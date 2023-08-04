@@ -1,5 +1,5 @@
-#ifndef TARGETDATASCOPE_H
-#define TARGETDATASCOPE_H
+#ifndef TARGETDATAREGION_H
+#define TARGETDATAREGION_H
 
 #include <boost/container/flat_set.hpp>
 
@@ -7,7 +7,7 @@
 
 using namespace clang;
 
-class TargetDataScope {
+class TargetDataRegion {
 private:
   SourceLocation BeginLoc;
   SourceLocation EndLoc;
@@ -24,7 +24,7 @@ private:
   friend class DataTracker;
 
 public:
-  TargetDataScope(SourceLocation BeginLoc, SourceLocation EndLoc, FunctionDecl *FD);
+  TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc, FunctionDecl *FD);
 
   SourceLocation getBeginLoc() const;
   SourceLocation getEndLoc() const;

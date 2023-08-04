@@ -5,8 +5,8 @@ add_library(rose MODULE
     CommonUtils.cpp
     DataTracker.cpp
     DirectiveRewriter.cpp
+    Kernel.cpp
     RoseASTConsumer.cpp
     RoseASTVisitor.cpp
-    TargetDataScope.cpp
-    TargetRegion.cpp
+    TargetDataRegion.cpp
 )

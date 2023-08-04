@@ -3,10 +3,10 @@
 
 #include "clang/Rewrite/Core/Rewriter.h"
 
-#include "TargetDataScope.h"
+#include "TargetDataRegion.h"
 
 using namespace clang;
 
-void rewriteTargetDataScope(Rewriter &R, ASTContext &Context, const TargetDataScope *Data);
+void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataRegion *Data);
 
 #endif

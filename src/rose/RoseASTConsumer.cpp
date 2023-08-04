@@ -9,7 +9,7 @@ RoseASTConsumer::RoseASTConsumer(CompilerInstance *CI)
       SM(&(Context->getSourceManager())),
       Visitor(new RoseASTVisitor(CI)),
       FunctionTrackers(Visitor->getFunctionTrackers()),
-      TargetRegions(Visitor->getTargetRegions()) {
+      Kernels(Visitor->getTargetRegions()) {
   TheRewriter.setSourceMgr(*SM, Context->getLangOpts());
 }
 
@@ -53,22 +53,22 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     }
   }
 
-  llvm::outs() << "Number of Target Data Regions: " << TargetRegions.size() << "\n";
+  llvm::outs() << "Number of Target Data Regions: " << Kernels.size() << "\n";
 
   // Print naive kernel information
-  for (int I = 0; I < TargetRegions.size(); ++I) {
+  for (int I = 0; I < Kernels.size(); ++I) {
     llvm::outs() << "\nTargetRegion #" << I;
-    TargetRegions[I]->print(llvm::outs(), *SM);
+    Kernels[I]->print(llvm::outs(), *SM);
   }
 
   int I = 0;
   for (DataTracker *DT : FunctionTrackers) {
-    const TargetDataScope *Scope = DT->getTargetDataScope();
+    const TargetDataRegion *Scope = DT->getTargetDataScope();
     if (!Scope)
       continue;
     llvm::outs() << "\nTargetScope #" << I++;
     Scope->print(llvm::outs(), *SM);
-    rewriteTargetDataScope(TheRewriter, Context, Scope);
+    rewriteTargetDataRegion(TheRewriter, Context, Scope);
   }
 
   FileID FID = SM->getMainFileID();

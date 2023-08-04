@@ -7,14 +7,14 @@ using namespace clang;
 RoseASTVisitor::RoseASTVisitor(CompilerInstance *CI)
     : Context(&(CI->getASTContext())),
       SM(&(Context->getSourceManager())) {
-  LastTargetRegion = NULL;
+  LastKernel = NULL;
   LastFunction = NULL;
 }
 
 bool RoseASTVisitor::inLastTargetRegion(SourceLocation Loc) {
-  if (!LastTargetRegion)
+  if (!LastKernel)
     return false;
-  return LastTargetRegion->contains(Loc);
+  return LastKernel->contains(Loc);
 }
 
 bool RoseASTVisitor::inLastFunction(SourceLocation Loc) {
@@ -27,8 +27,8 @@ std::vector<DataTracker *> &RoseASTVisitor::getFunctionTrackers() {
   return FunctionTrackers;
 }
 
-std::vector<TargetRegion *> &RoseASTVisitor::getTargetRegions() {
-  return TargetRegions;
+std::vector<Kernel *> &RoseASTVisitor::getTargetRegions() {
+  return Kernels;
 }
 
 bool RoseASTVisitor::VisitStmt(Stmt *S) {
@@ -54,7 +54,7 @@ bool RoseASTVisitor::VisitVarDecl(VarDecl *VD) {
     || !SM->isInMainFile(VD->getLocation()))
     return true;
   if (inLastTargetRegion(VD->getLocation())) {
-    LastTargetRegion->recordPrivate(VD);
+    LastKernel->recordPrivate(VD);
     return true;
   }
 
@@ -197,15 +197,15 @@ bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
       !SM->isInMainFile(S->getBeginLoc()))
     return true;
   if (isaTargetKernel(S)) {
-    LastTargetRegion = new TargetRegion(S, LastFunction->getDecl());
-    LastFunction->recordTargetRegion(LastTargetRegion);
-    TargetRegions.push_back(LastTargetRegion);
+    LastKernel = new Kernel(S, LastFunction->getDecl());
+    LastFunction->recordTargetRegion(LastKernel);
+    Kernels.push_back(LastKernel);
     return true;
   }
-  if (TargetRegions.size() > 0
-   && TargetRegions.back()->contains(S->getBeginLoc())) {
+  if (Kernels.size() > 0
+   && Kernels.back()->contains(S->getBeginLoc())) {
     llvm::outs() << "nested dir at" << S->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
-    TargetRegions.back()->recordNestedDirective(S);
+    Kernels.back()->recordNestedDirective(S);
   }
   return true;
 }

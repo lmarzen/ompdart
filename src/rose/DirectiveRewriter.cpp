@@ -117,7 +117,7 @@ std::string getIndentationStep(SourceManager &SourceMgr, FunctionDecl *FD)
 
 void rewriteDataMap(Rewriter &R,
                     ASTContext &Context,
-                    const TargetDataScope *Data,
+                    const TargetDataRegion *Data,
                     const std::string &IndentStep) {
   SourceManager &SM = R.getSourceMgr();
 
@@ -171,7 +171,7 @@ void rewriteDataMap(Rewriter &R,
 
 void rewriteUpdateTo(Rewriter &R,
                      ASTContext &Context,
-                     const TargetDataScope *Data,
+                     const TargetDataRegion *Data,
                      const std::string &IndentStep) {
   if (Data->getUpdateTo().empty())
     return;
@@ -271,7 +271,7 @@ void rewriteUpdateTo(Rewriter &R,
 
 void rewriteUpdateFrom(Rewriter &R,
                        ASTContext &Context,
-                       const TargetDataScope *Data,
+                       const TargetDataRegion *Data,
                        const std::string &IndentStep) {
   if (Data->getUpdateFrom().empty())
     return;
@@ -384,7 +384,7 @@ void rewriteUpdateFrom(Rewriter &R,
 }
 
 void increaseIndentation(Rewriter &R,
-                         const TargetDataScope *Data,
+                         const TargetDataRegion *Data,
                          const std::string &IndentStep) {
   SourceManager &SM = R.getSourceMgr();
 
@@ -401,7 +401,7 @@ void increaseIndentation(Rewriter &R,
   return;
 }
 
-void rewriteTargetDataScope(Rewriter &R, ASTContext &Context, const TargetDataScope *Data) {
+void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataRegion *Data) {
   if (Data->getMapAlloc().empty()
    && Data->getMapTo().empty()
    && Data->getMapFrom().empty()
