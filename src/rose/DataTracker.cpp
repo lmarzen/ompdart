@@ -540,7 +540,7 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
           const unsigned int DiagID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Error,
-              "declaration of '%0' is captured within the target data region in which it is being utilized");
+              "declaration of '%0' is captured within a target data region in which it is being utilized");
            const unsigned int NoteID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Note,
               "declaration of '%0' was anticipated to precede the beginning of the target data region at this location");
