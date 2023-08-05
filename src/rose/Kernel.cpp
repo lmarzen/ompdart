@@ -17,7 +17,7 @@ bool Kernel::contains(SourceLocation Loc) const {
   CapturedStmt *CS = TD->getInnermostCapturedStmt();
   SourceLocation CSBeginLoc = CS->getBeginLoc();
   SourceLocation CSEndLoc = CS->getEndLoc();
-  return (CSBeginLoc <= Loc) && (Loc <= CSEndLoc);
+  return (CSBeginLoc <= Loc) && (Loc < CSEndLoc);
 }
 
 SourceLocation Kernel::getBeginLoc() const {
@@ -86,7 +86,6 @@ void Kernel::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
     VD->getLocation().print(OS, SM);
     OS << " id: " << VD->getID();
   }
-  OS << "\n";
   if (MapAlloc.size())
     OS << "\n|   |-- alloc";
   for (ValueDecl *VD : MapAlloc) {
@@ -110,4 +109,3 @@ const boost::container::flat_set<ValueDecl *> &Kernel::getMapToFrom() const {
 const boost::container::flat_set<ValueDecl *> &Kernel::getMapAlloc() const {
   return MapAlloc;
 }
-

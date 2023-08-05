@@ -3,14 +3,25 @@
 #include "clang/AST/ParentMapContext.h"
 #include "clang/Basic/SourceManager.h"
 
+#include <boost/container/flat_set.hpp>
+
 using namespace clang;
 
-struct UpdateDirInfo
-{
+struct UpdateDirInfo {
   const Stmt *FullStmt;
   boost::container::flat_set<ValueDecl *> Decls;
 
-  UpdateDirInfo(const Stmt *FullStmt) : FullStmt(FullStmt) {}
+  UpdateDirInfo(const Stmt *FullStmt)
+      : FullStmt(FullStmt) {}
+};
+
+struct ClauseDirInfo {
+  const OMPExecutableDirective *Directive;
+  boost::container::flat_set<ValueDecl *> FirstPrivateDecls;
+  boost::container::flat_set<ValueDecl *> PrivateDecls;
+
+  ClauseDirInfo(const OMPExecutableDirective *Directive)
+      : Directive(Directive) {}
 };
 
 /* Finds the outermost Stmt in ContainingStmt that captures S. Returns NULL on
@@ -282,7 +293,7 @@ void rewriteUpdateFrom(Rewriter &R,
   for (const AccessInfo &Access : Data->getUpdateFrom()) {
     const Stmt *FullStmt = getSemiTerminatedStmt(Context, Access.S);
 
-    if (Access.Flags & A_LEND) {
+    if (Access.Barrier == ScopeBarrier::LoopEnd) {
       if (const ForStmt *FS = dyn_cast<ForStmt>(FullStmt))
         FullStmt = FS->getBody();
       else if (const WhileStmt *WS = dyn_cast<WhileStmt>(FullStmt))
@@ -383,6 +394,64 @@ void rewriteUpdateFrom(Rewriter &R,
   return;
 }
 
+void rewriteClauses(Rewriter &R,
+                    ASTContext &Context,
+                    const TargetDataRegion *Data) {
+  if (Data->getFirstPrivate().empty()
+   && Data->getPrivate().empty())
+    return;
+
+  // Consolidate new clauses so we have a list for each directive.
+  std::vector<ClauseDirInfo> DirectiveList;
+  for (const ClauseInfo &Clause : Data->getFirstPrivate()) {
+    const OMPExecutableDirective *Directive = Clause.Directive;
+    auto It = std::find_if(DirectiveList.begin(), DirectiveList.end(),
+                           [Directive](ClauseDirInfo &C) {
+                             return C.Directive == Directive;
+                           });
+    if (It == DirectiveList.end()) {
+      DirectiveList.emplace_back(ClauseDirInfo(Directive));
+      It = --(DirectiveList.end());
+    }
+    It->FirstPrivateDecls.insert(Clause.VD);
+  }
+  for (const ClauseInfo &Clause : Data->getPrivate()) {
+    const OMPExecutableDirective *Directive = Clause.Directive;
+    auto It = std::find_if(DirectiveList.begin(), DirectiveList.end(),
+                           [Directive](ClauseDirInfo &C) {
+                             return C.Directive == Directive;
+                           });
+    if (It == DirectiveList.end()) {
+      DirectiveList.emplace_back(ClauseDirInfo(Directive));
+      It = --(DirectiveList.end());
+    }
+    It->PrivateDecls.insert(Clause.VD);
+  }
+
+  for (ClauseDirInfo &Directive: DirectiveList) {
+    std::string Clauses;
+    if (!Directive.FirstPrivateDecls.empty()) {
+      Clauses += " firstprivate(";
+      for (ValueDecl *VD : Directive.FirstPrivateDecls) {
+        Clauses += VD->getNameAsString() + ",";
+      }
+      Clauses.back() = ')';
+    }
+    if (!Directive.PrivateDecls.empty()) {
+      Clauses += " private(";
+      for (ValueDecl *VD : Directive.PrivateDecls) {
+        Clauses += VD->getNameAsString() + ",";
+      }
+      Clauses.back() = ')';
+    }
+
+    R.InsertTextBefore(Directive.Directive->getEndLoc(), Clauses);
+  }
+  
+  return;
+}
+
+
 void increaseIndentation(Rewriter &R,
                          const TargetDataRegion *Data,
                          const std::string &IndentStep) {
@@ -402,6 +471,8 @@ void increaseIndentation(Rewriter &R,
 }
 
 void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataRegion *Data) {
+  rewriteClauses(R, Context, Data);
+
   if (Data->getMapAlloc().empty()
    && Data->getMapTo().empty()
    && Data->getMapFrom().empty()

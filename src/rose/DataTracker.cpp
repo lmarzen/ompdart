@@ -31,7 +31,7 @@ bool DataTracker::contains(SourceLocation Loc) const {
   Stmt *Body = FD->getBody();
   SourceLocation BodyBeginLoc = Body->getBeginLoc();
   SourceLocation BodyEndLoc = Body->getEndLoc();
-  return (BodyBeginLoc <= Loc) && (Loc <= BodyEndLoc);
+  return (BodyBeginLoc <= Loc) && (Loc < BodyEndLoc);
 }
 
 int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
@@ -85,7 +85,7 @@ int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
         return 0;
     }
 
-    if (LastKernel->contains(Loc)) 
+    if (LastKernel->contains(Loc))
       Flags |= A_OFFLD;
   }
 
@@ -103,10 +103,11 @@ int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
     recordGlobal(VD);
 
   AccessInfo NewEntry;
-  NewEntry.VD    = VD;
-  NewEntry.S     = S;
-  NewEntry.Loc   = Loc;
-  NewEntry.Flags = Flags;
+  NewEntry.VD      = VD;
+  NewEntry.S       = S;
+  NewEntry.Loc     = Loc;
+  NewEntry.Flags   = Flags;
+  NewEntry.Barrier = ScopeBarrier::None;
 
   return insertAccessLogEntry(NewEntry);
 }
@@ -247,14 +248,10 @@ void DataTracker::printAccessLog() const {
       llvm::outs() << "???          ";
       break;
     }
-    switch (Entry.Flags & A_OFFLD)
-    {
-    case A_OFFLD:
+    if (Entry.Flags & A_OFFLD) {
       llvm::outs() << "TGTDEV   ";
-      break;
-    default:
+    } else {
       llvm::outs() << "HOST     ";
-      break;
     }
     llvm::outs() << Entry.Loc.printToString(SourceMgr) << "\n";
   }
@@ -265,6 +262,17 @@ void DataTracker::printAccessLog() const {
 int DataTracker::recordTargetRegion(Kernel *K) {
   LastKernel = K;
   Kernels.push_back(K);
+
+  AccessInfo NewEntry;
+  NewEntry.VD      = nullptr;
+  NewEntry.S       = K->getDirective();
+  NewEntry.Loc     = K->getBeginLoc();
+  NewEntry.Flags   = A_NOP;
+  NewEntry.Barrier = ScopeBarrier::KernelBegin;
+  insertAccessLogEntry(NewEntry);
+  NewEntry.Loc     = K->getEndLoc();
+  NewEntry.Barrier = ScopeBarrier::KernelEnd;
+  insertAccessLogEntry(NewEntry);
   return 1;
 }
 
@@ -281,13 +289,14 @@ int DataTracker::recordLoop(Stmt *S) {
   Loops.push_back(S);
 
   AccessInfo NewEntry;
-  NewEntry.VD    = nullptr;
-  NewEntry.S     = S;
-  NewEntry.Loc   = S->getBeginLoc();
-  NewEntry.Flags = A_LBEGIN;
+  NewEntry.VD      = nullptr;
+  NewEntry.S       = S;
+  NewEntry.Loc     = S->getBeginLoc();
+  NewEntry.Flags   = A_NOP;
+  NewEntry.Barrier = ScopeBarrier::LoopBegin;
   insertAccessLogEntry(NewEntry);
-  NewEntry.Loc   = S->getEndLoc();
-  NewEntry.Flags = A_LEND;
+  NewEntry.Loc     = S->getEndLoc();
+  NewEntry.Barrier = ScopeBarrier::LoopEnd;
   insertAccessLogEntry(NewEntry);
   return 1;
 }
@@ -357,8 +366,6 @@ void DataTracker::naiveAnalyze() {
 
   for (Kernel *K : Kernels) {
     // Seperate reads and writes into their own sets.
-    K->ReadDecls.clear();
-    K->WriteDecls.clear();
     for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
       switch (It->Flags & 0b00000111)
       {
@@ -402,9 +409,8 @@ struct DataFlowOf {
   DataFlowOf(ValueDecl *VD) : VD(VD) {}
   bool operator()(const AccessInfo &Entry) {
     // Consider an entry in the access log to be in the flow of VD if the entry
-    // contains info for VD or is a the beginning or end of a loop.
-    return (Entry.Flags & (A_LBEGIN | A_LEND))
-           || (Entry.VD == VD);
+    // contains info for VD or is a the beginning or end of a loop or kernel.
+    return Entry.Barrier || (Entry.VD == VD);
   }
 };
 
@@ -414,8 +420,12 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
   bool DataInitialized = false;
   bool DataValidOnHost = false;
   bool DataValidOnDevice = false;
+  bool DataFirstPrivate = false;
+  bool UsedInLastKernel = false;
   std::stack<LoopDependency> LoopDependencyStack;
 
+  bool IsArithmeticType = VD->getType()->isArithmeticType();
+  bool MapAlloc = !IsArithmeticType;
   bool IsGlobal = Globals.contains(VD);
   bool IsParam = false;
   bool IsParamPtrToNonConst = false;
@@ -441,35 +451,54 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
   // Advance It to next access entry of VD or loop marker
   It = std::find_if(AccessLog.begin(), AccessLog.end(), DataFlowOf(VD));
   while (It != AccessLog.end()) {
-    if (It->Flags & A_LBEGIN) {
+    if (It->Barrier == ScopeBarrier::LoopBegin) {
       LoopDependency LD;
       LD.DataValidOnHost   = DataValidOnHost;
       LD.DataValidOnDevice = DataValidOnDevice;
       LD.MapTo             = MapTo;
       LD.FirstHostAccess   = nullptr;
       LoopDependencyStack.emplace(LD);
-
-    } else if (It->Flags & A_LEND) {
+    } else if (It->Barrier == ScopeBarrier::LoopEnd) {
       LoopDependency LD = LoopDependencyStack.top();
       if (LD.DataValidOnHost && !DataValidOnHost && LD.FirstHostAccess) {
         AccessInfo FirstAccess = *(LD.FirstHostAccess); // copy
-        FirstAccess.Flags |= A_LEND; // Indicates to the rewriter that this
-                                     // statement is to be placed directive
-                                     // directly before the loop end.
-        TargetScope->UpdateFrom.emplace(FirstAccess);
+        // Indicates to the rewriter that this statement is to be placed
+        // directive directly before the loop end.
+        FirstAccess.Barrier = ScopeBarrier::LoopEnd; 
+        TargetScope->UpdateFrom.emplace_back(FirstAccess);
       }
       if ((LD.DataValidOnDevice && !DataValidOnDevice && LD.FirstHostAccess)
        || (!LD.MapTo && MapTo && !DataValidOnDevice)) {
-        TargetScope->UpdateTo.emplace(*PrevHostIt);
+        TargetScope->UpdateTo.emplace_back(*PrevHostIt);
         MapTo = LD.MapTo; // restore MapTo to before loop
       }
       LoopDependencyStack.pop();
 
+    } else if (It->Barrier == ScopeBarrier::KernelBegin) {
+      if (IsArithmeticType && !DataValidOnDevice) {
+        DataFirstPrivate = true;
+        DataValidOnDevice = true;
+        UsedInLastKernel = false;
+      }
+    } else if (It->Barrier == ScopeBarrier::KernelEnd) {
+      if (IsArithmeticType && DataFirstPrivate) {
+        DataFirstPrivate = false;
+        DataValidOnDevice = false;
+        if (UsedInLastKernel)
+          TargetScope->FirstPrivate.emplace_back(
+              dyn_cast<OMPExecutableDirective>(It->S), VD);
+      }
+
     } else if (It->Flags & A_OFFLD) {
       // check access on target device
+      if (DataFirstPrivate && (It->Flags != (A_RDONLY  | A_OFFLD))) { // ReadOnly
+        // If not read-only then abandon attempt to classify as firstprivate.
+        DataFirstPrivate = false;
+        DataValidOnDevice = false;
+      }
       if (!DataInitialized) {
         if (It->Flags & A_RDONLY) {
-          // read before write!
+          // Read before write!
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
           const unsigned int DiagID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Warning,
@@ -488,14 +517,17 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
           // global or parameter on the target device.
           MapTo = true;
         } else {
-          TargetScope->UpdateTo.emplace(*PrevHostIt);
+          TargetScope->UpdateTo.emplace_back(*PrevHostIt);
         }
         DataValidOnDevice = true;
       }
       if (It->Flags & (A_WRONLY | A_UNKNOWN)) {// Write/ReadWrite/Unknown
         DataValidOnDevice = true;
         DataValidOnHost = false;
+        // a single write on the target guarantees we need to at allocate space
+        MapAlloc = true;
       }
+      UsedInLastKernel = true;
 
       // end check access on target device
     } else {
@@ -503,10 +535,11 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
       if (!DataInitialized) {
         if (It->Loc == It->VD->getLocation()
          && TargetScope->BeginLoc <= It->Loc) {
-          // data needs to be declared before the target scope in which it is used.
+          // Data needs to be declared before the target scope in which it is
+          // used.
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
           const unsigned int DiagID = DiagEngine.getCustomDiagID(
-              DiagnosticsEngine::Warning,
+              DiagnosticsEngine::Error,
               "declaration of '%0' is captured within the target data region in which it is being utilized");
            const unsigned int NoteID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Note,
@@ -531,7 +564,7 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
         if (TargetScope->EndLoc < It->Loc) {
           MapFrom = true;
         } else {
-          TargetScope->UpdateFrom.emplace(*It);
+          TargetScope->UpdateFrom.emplace_back(*It);
         }
         DataValidOnHost = true;
       }
@@ -558,13 +591,13 @@ void DataTracker::analyzeValueDecl(ValueDecl *VD) {
   }
 
   if (MapTo && MapFrom)
-    TargetScope->MapToFrom.insert(VD);
+    TargetScope->MapToFrom.push_back(VD);
   else if (MapTo)
-    TargetScope->MapTo.insert(VD);
+    TargetScope->MapTo.push_back(VD);
   else if (MapFrom)
-    TargetScope->MapFrom.insert(VD);
-  else
-    TargetScope->MapAlloc.insert(VD);
+    TargetScope->MapFrom.push_back(VD);
+  else if (MapAlloc)
+    TargetScope->MapAlloc.push_back(VD);
 
   return;
 }
@@ -607,6 +640,12 @@ void DataTracker::analyze() {
 
   for (ValueDecl *VD : TargetScopeDecls) {
     analyzeValueDecl(VD);
+  }
+
+  for (Kernel *K : Kernels) {
+    for (ValueDecl *VD : K->getPrivateDecls()) {
+      TargetScope->Private.emplace_back(K->getDirective(), VD);
+    }
   }
 
   return;

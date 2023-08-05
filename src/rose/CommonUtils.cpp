@@ -60,19 +60,3 @@ bool isaTargetKernel(Stmt *S) {
       || isa<OMPTargetTeamsDistributeSimdDirective>(S)
       || isa<OMPTargetTeamsGenericLoopDirective>(S);
 }
-
-/*
-void emittingDiagnostic()
-{
-  clang::SourceLocation Loc = FD->getBeginLoc();
-  // Create a warning message.
-  clang::DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
-  const unsigned DiagID = DiagEngine.getCustomDiagID(clang::DiagnosticsEngine::Warning,
-                                                      "I findz a badness");
-  DiagnosticBuilder DiagBuilder = DiagEngine.Report(Loc, DiagID);
-  // Optionally, you can set the SourceRange to highlight the relevant code in the warning message.
-  DiagBuilder << SourceRange(Loc, FD->getEndLoc());
-  return;
-}
-*/
-

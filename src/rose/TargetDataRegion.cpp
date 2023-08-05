@@ -72,26 +72,34 @@ void TargetDataRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) con
   return;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapTo() const {
+const std::vector<ValueDecl *> &TargetDataRegion::getMapTo() const {
   return MapTo;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapFrom() const {
+const std::vector<ValueDecl *> &TargetDataRegion::getMapFrom() const {
   return MapFrom;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapToFrom() const {
+const std::vector<ValueDecl *> &TargetDataRegion::getMapToFrom() const {
   return MapToFrom;
 }
 
-const boost::container::flat_set<ValueDecl *> &TargetDataRegion::getMapAlloc() const {
+const std::vector<ValueDecl *> &TargetDataRegion::getMapAlloc() const {
   return MapAlloc;
 }
 
-const boost::container::flat_set<AccessInfo> &TargetDataRegion::getUpdateTo() const {
+const std::vector<AccessInfo> &TargetDataRegion::getUpdateTo() const {
   return UpdateTo;
 }
 
-const boost::container::flat_set<AccessInfo> &TargetDataRegion::getUpdateFrom() const {
+const std::vector<AccessInfo> &TargetDataRegion::getUpdateFrom() const {
   return UpdateFrom;
+}
+
+const std::vector<ClauseInfo> &TargetDataRegion::getPrivate() const {
+  return Private;
+}
+
+const std::vector<ClauseInfo> &TargetDataRegion::getFirstPrivate() const {
+  return FirstPrivate;
 }
