@@ -642,12 +642,6 @@ void DataTracker::analyze() {
     analyzeValueDecl(VD);
   }
 
-  for (Kernel *K : Kernels) {
-    for (ValueDecl *VD : K->getPrivateDecls()) {
-      TargetScope->Private.emplace_back(K->getDirective(), VD);
-    }
-  }
-
   return;
 }
 

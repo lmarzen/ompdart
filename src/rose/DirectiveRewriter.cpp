@@ -18,7 +18,6 @@ struct UpdateDirInfo {
 struct ClauseDirInfo {
   const OMPExecutableDirective *Directive;
   boost::container::flat_set<ValueDecl *> FirstPrivateDecls;
-  boost::container::flat_set<ValueDecl *> PrivateDecls;
 
   ClauseDirInfo(const OMPExecutableDirective *Directive)
       : Directive(Directive) {}
@@ -397,8 +396,7 @@ void rewriteUpdateFrom(Rewriter &R,
 void rewriteClauses(Rewriter &R,
                     ASTContext &Context,
                     const TargetDataRegion *Data) {
-  if (Data->getFirstPrivate().empty()
-   && Data->getPrivate().empty())
+  if (Data->getFirstPrivate().empty())
     return;
 
   // Consolidate new clauses so we have a list for each directive.
@@ -415,18 +413,6 @@ void rewriteClauses(Rewriter &R,
     }
     It->FirstPrivateDecls.insert(Clause.VD);
   }
-  for (const ClauseInfo &Clause : Data->getPrivate()) {
-    const OMPExecutableDirective *Directive = Clause.Directive;
-    auto It = std::find_if(DirectiveList.begin(), DirectiveList.end(),
-                           [Directive](ClauseDirInfo &C) {
-                             return C.Directive == Directive;
-                           });
-    if (It == DirectiveList.end()) {
-      DirectiveList.emplace_back(ClauseDirInfo(Directive));
-      It = --(DirectiveList.end());
-    }
-    It->PrivateDecls.insert(Clause.VD);
-  }
 
   for (ClauseDirInfo &Directive: DirectiveList) {
     std::string Clauses;
@@ -437,14 +423,6 @@ void rewriteClauses(Rewriter &R,
       }
       Clauses.back() = ')';
     }
-    if (!Directive.PrivateDecls.empty()) {
-      Clauses += " private(";
-      for (ValueDecl *VD : Directive.PrivateDecls) {
-        Clauses += VD->getNameAsString() + ",";
-      }
-      Clauses.back() = ')';
-    }
-
     R.InsertTextBefore(Directive.Directive->getEndLoc(), Clauses);
   }
   
