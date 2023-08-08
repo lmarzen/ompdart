@@ -22,6 +22,7 @@ private:
   std::vector<AccessInfo> UpdateFrom;
   std::vector<ClauseInfo> Private;
   std::vector<ClauseInfo> FirstPrivate;
+  std::vector<OMPExecutableDirective *> Kernels;
 
   // will directly update
   friend class DataTracker;
@@ -42,6 +43,7 @@ public:
   const std::vector<AccessInfo> &getUpdateFrom() const;
   const std::vector<ClauseInfo> &getPrivate() const;
   const std::vector<ClauseInfo> &getFirstPrivate() const;
+  const std::vector<OMPExecutableDirective *> &getKernels() const;
 };
 
 #endif

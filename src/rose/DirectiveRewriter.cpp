@@ -125,13 +125,37 @@ std::string getIndentationStep(SourceManager &SourceMgr, FunctionDecl *FD)
   return BodyIndent.substr(ParentIndent.length());
 }
 
+void increaseIndentation(Rewriter &R,
+                         const TargetDataRegion *Data,
+                         const std::string &IndentStep) {
+  SourceManager &SM = R.getSourceMgr();
+
+  SourceLocation OpeningLoc = Data->getBeginLoc();
+  SourceLocation ClosingLoc = Data->getEndLoc();
+  FileID FID = SM.getFileID(OpeningLoc);
+  unsigned int BeginLn = SM.getSpellingLineNumber(OpeningLoc);
+  unsigned int EndLn = SM.getSpellingLineNumber(ClosingLoc);
+  for (unsigned Ln = BeginLn + 1; Ln <= EndLn; ++Ln) {
+    SourceLocation InsertLoc = SM.translateLineCol(FID, Ln, 1);
+    R.InsertTextBefore(InsertLoc, IndentStep);
+  }
+  
+  return;
+}
+
 void rewriteDataMap(Rewriter &R,
                     ASTContext &Context,
                     const TargetDataRegion *Data,
                     const std::string &IndentStep) {
   SourceManager &SM = R.getSourceMgr();
 
-  std::string MapDirective = "#pragma omp target data";
+  std::string MapDirective;
+  if (Data->getKernels().size() != 1 
+   || Data->getKernels().front()->getBeginLoc() != Data->getBeginLoc()) {
+    // create a new directive rather than add to an existing one
+    MapDirective = "#pragma omp target data";
+  }
+
   if (!Data->getMapAlloc().empty()) {
     MapDirective += " map(alloc:";
     for (ValueDecl *VD : Data->getMapAlloc()) {
@@ -160,6 +184,14 @@ void rewriteDataMap(Rewriter &R,
     }
     MapDirective.back() = ')';
   }
+
+  if (MapDirective[0] != '#') {
+    // Append the map directives to the end of the first and only kernel
+    // spawning directive.
+    R.InsertTextBefore(Data->getKernels().front()->getEndLoc(), MapDirective);
+    return;
+  }
+
   MapDirective += "\n";
   std::string Indent = getIndentation(SM, Data->getBeginLoc());
   MapDirective += Indent;
@@ -176,6 +208,7 @@ void rewriteDataMap(Rewriter &R,
     ClosingLoc = ClosingLoc.getLocWithOffset(1);
 
   R.InsertTextAfter(ClosingLoc, MapDirectiveClosing);
+  increaseIndentation(R, Data, IndentStep);
   return;
 }
 
@@ -429,25 +462,6 @@ void rewriteClauses(Rewriter &R,
   return;
 }
 
-
-void increaseIndentation(Rewriter &R,
-                         const TargetDataRegion *Data,
-                         const std::string &IndentStep) {
-  SourceManager &SM = R.getSourceMgr();
-
-  SourceLocation OpeningLoc = Data->getBeginLoc();
-  SourceLocation ClosingLoc = Data->getEndLoc();
-  FileID FID = SM.getFileID(OpeningLoc);
-  unsigned int BeginLn = SM.getSpellingLineNumber(OpeningLoc);
-  unsigned int EndLn = SM.getSpellingLineNumber(ClosingLoc);
-  for (unsigned Ln = BeginLn + 1; Ln <= EndLn; ++Ln) {
-    SourceLocation InsertLoc = SM.translateLineCol(FID, Ln, 1);
-    R.InsertTextBefore(InsertLoc, IndentStep);
-  }
-  
-  return;
-}
-
 void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataRegion *Data) {
   rewriteClauses(R, Context, Data);
 
@@ -465,8 +479,6 @@ void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataR
 
   rewriteUpdateTo(R, Context, Data, IndentStep);
   rewriteUpdateFrom(R, Context, Data, IndentStep);
-
-  increaseIndentation(R, Data, IndentStep);
 
   return;
 }

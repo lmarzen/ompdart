@@ -608,15 +608,6 @@ void DataTracker::analyze() {
     return;
   }
 
-  // Find target region bounds.
-  for (Kernel *K : Kernels) {
-    AccessInfo Lower, Upper;
-    Lower.Loc = K->getBeginLoc();
-    Upper.Loc = K->getEndLoc();
-    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
-    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
-  }
-
   // Identify the root(outermost) target scope in the function.
   const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
   SourceLocation ScopeBegin = FrontCapturingStmt->getBeginLoc();
@@ -630,6 +621,10 @@ void DataTracker::analyze() {
   }
 
   TargetScope = new TargetDataRegion(ScopeBegin, ScopeEnd, FD);
+
+  for (Kernel *K : Kernels) {
+    TargetScope->Kernels.push_back(K->getDirective());
+  }
 
   // Map a list of all the data the TargetScope will be responsible for.
   boost::container::flat_set<ValueDecl *> TargetScopeDecls;

@@ -103,3 +103,7 @@ const std::vector<ClauseInfo> &TargetDataRegion::getPrivate() const {
 const std::vector<ClauseInfo> &TargetDataRegion::getFirstPrivate() const {
   return FirstPrivate;
 }
+
+const std::vector<OMPExecutableDirective *> &TargetDataRegion::getKernels() const {
+  return Kernels;
+}
