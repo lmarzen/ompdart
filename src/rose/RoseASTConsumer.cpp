@@ -28,11 +28,13 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     DT->analyze();
     llvm::outs() << "globals\n";
     for (auto Global : DT->getGlobals()) {
-      llvm::outs() << "  " << Global->getNameAsString() << "\n";
+      llvm::outs() << "  " << Global->getNameAsString() 
+                   << "  " << Global->getID() << "\n";
     }
     llvm::outs() << "locals\n";
     for (auto Local : DT->getLocals()) {
-      llvm::outs() << "  " << Local->getNameAsString() << "\n";
+      llvm::outs() << "  " << Local->getNameAsString()
+                   << "  " << Local->getID() << "\n";
     }
   }
 

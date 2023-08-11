@@ -19,11 +19,14 @@ DataTracker::DataTracker(FunctionDecl *FD, ASTContext *Context) {
   for (ValueDecl *Param : FD->parameters()) {
     this->Locals.insert(Param);
   }
-  this->LastKernel = NULL;
-  this->TargetScope = NULL;
+  this->LastKernel = nullptr;
+  this->TargetScope = nullptr;
+
+  this->LastArrayBasePointer = nullptr;
+  this->LastArraySubscript = nullptr;
 };
 
-FunctionDecl *DataTracker::getDecl() const {
+const FunctionDecl *DataTracker::getDecl() const {
   return FD;
 }
 
@@ -39,6 +42,7 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
     AccessLog.push_back(NewEntry);
     return 1;
   }
+
   // Insert into AccessLog. Maintain order of increasing SourceLocation.
   // New accesses will usually be somewhere within the last few SourceLocations
   // so iterating backwards is quick.
@@ -53,8 +57,11 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
   return 1;
 }
 
-int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
-                              uint8_t Flags, bool overwrite) {
+int DataTracker::recordAccess(const ValueDecl *VD,
+                              SourceLocation Loc,
+                              const Stmt *S,
+                              uint8_t Flags,
+                              bool overwrite) {
   if (LastKernel) {
     // Don't record private data.
     if (LastKernel->isPrivate(VD))
@@ -102,12 +109,17 @@ int DataTracker::recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S,
   if (!Locals.contains(VD))
     recordGlobal(VD);
 
-  AccessInfo NewEntry;
+  AccessInfo NewEntry = {};
   NewEntry.VD      = VD;
   NewEntry.S       = S;
   NewEntry.Loc     = Loc;
   NewEntry.Flags   = Flags;
-  NewEntry.Barrier = ScopeBarrier::None;
+
+  if (VD && VD == LastArrayBasePointer) {
+    NewEntry.ArraySubscript = LastArraySubscript;
+    LastArrayBasePointer    = nullptr;
+    LastArraySubscript      = nullptr;
+  }
 
   return insertAccessLogEntry(NewEntry);
 }
@@ -119,8 +131,8 @@ const std::vector<AccessInfo> &DataTracker::getAccessLog() {
 /* Update reads/writes that may have happened on by the Callee parameters passed
  * by pointer.
 */
-int DataTracker::updateParamsTouchedByCallee(FunctionDecl *Callee,
-                                             const std::vector<CallExpr *> &Calls,
+int DataTracker::updateParamsTouchedByCallee(const FunctionDecl *Callee,
+                                             const std::vector<const CallExpr *> &Calls,
                                              const std::vector<uint8_t> &ParamModes) {
   int numUpdates = 0;
   if (Callee->getNumParams() != ParamModes.size()) {
@@ -135,19 +147,19 @@ int DataTracker::updateParamsTouchedByCallee(FunctionDecl *Callee,
   if (Params.size() == 0)
     return numUpdates;
 
-  for (CallExpr *CE : Calls) {
-    Expr **Args = CE->getArgs();
+  for (const CallExpr *CE : Calls) {
+    const Expr *const *Args = CE->getArgs();
 
     for (int I = 0; I < Callee->getNumParams(); ++I) {
       QualType ParamType = Callee->getParamDecl(I)->getType();
       if (!ParamType->isPointerType() && !ParamType->isReferenceType())
         continue;
-      DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreImpCasts());
+      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreImpCasts());
       if (!DRE) {
         // is a literal
         continue;
       }
-      ValueDecl *VD = DRE->getDecl();
+      const ValueDecl *VD = DRE->getDecl();
       numUpdates += recordAccess(VD, DRE->getLocation(), nullptr, ParamModes[I], true);
     }
   }
@@ -157,9 +169,9 @@ int DataTracker::updateParamsTouchedByCallee(FunctionDecl *Callee,
 /* Update reads/writes that may have occurred by the Callee on global variables.
  * We will need to insert these into our own AccessLog.
  */
-int DataTracker::updateGlobalsTouchedByCallee(FunctionDecl *Callee,
-                                              const std::vector<CallExpr *> &Calls,
-                                              const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
+int DataTracker::updateGlobalsTouchedByCallee(const FunctionDecl *Callee,
+                                              const std::vector<const CallExpr *> &Calls,
+                                              const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                                               const std::vector<uint8_t> &GlobalModes) {
   int numUpdates = 0;
 
@@ -173,8 +185,8 @@ int DataTracker::updateGlobalsTouchedByCallee(FunctionDecl *Callee,
   }
 
   int I = 0;
-  for (ValueDecl *Global : GlobalsAccessed) {
-    for (CallExpr *CE : Calls) {
+  for (const ValueDecl *Global : GlobalsAccessed) {
+    for (const CallExpr *CE : Calls) {
       numUpdates += recordAccess(Global, CE->getBeginLoc(), nullptr, GlobalModes[I], true);
     }
     recordGlobal(Global);
@@ -184,15 +196,15 @@ int DataTracker::updateGlobalsTouchedByCallee(FunctionDecl *Callee,
   return numUpdates;
 }
 
-int DataTracker::updateTouchedByCallee(FunctionDecl *Callee,
+int DataTracker::updateTouchedByCallee(const FunctionDecl *Callee,
                                        const std::vector<uint8_t> &ParamModes,
-                                       const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
+                                       const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                                        const std::vector<uint8_t> &GlobalModes) {
   int numUpdates = 0;
 
   // Start by finding all the calls to the callee.
-  std::vector<CallExpr *> Calls;
-  for (CallExpr *CE : CallExprs) {
+  std::vector<const CallExpr *> Calls;
+  for (const CallExpr *CE : CallExprs) {
     if (CE->getDirectCallee()->getDefinition() == Callee)
       Calls.push_back(CE);
   }
@@ -259,11 +271,34 @@ void DataTracker::printAccessLog() const {
   return;
 }
 
+int DataTracker::recordArrayAccess(const ValueDecl *BasePointer,
+                                   const ArraySubscriptExpr *Subscript) {
+  auto It = std::find_if(AccessLog.begin(), AccessLog.end(),
+                         [BasePointer, Subscript](AccessInfo &A) {
+                           return A.VD == BasePointer 
+                                  && A.Loc == Subscript->getBeginLoc();
+                         });
+
+  if (It == AccessLog.end()) {
+    // We have parsed the array subscript before determining the access type.
+    // Save it so it can be attached when the access is record in the access
+    // log.
+    LastArrayBasePointer = BasePointer;
+    LastArraySubscript   = Subscript;
+    return 1;
+  }
+  
+  It->ArraySubscript = Subscript;
+  LastArrayBasePointer = nullptr;
+  LastArraySubscript   = nullptr;
+  return 1;
+}
+
 int DataTracker::recordTargetRegion(Kernel *K) {
   LastKernel = K;
   Kernels.push_back(K);
 
-  AccessInfo NewEntry;
+  AccessInfo NewEntry = {};
   NewEntry.VD      = nullptr;
   NewEntry.S       = K->getDirective();
   NewEntry.Loc     = K->getBeginLoc();
@@ -276,19 +311,19 @@ int DataTracker::recordTargetRegion(Kernel *K) {
   return 1;
 }
 
-int DataTracker::recordCallExpr(CallExpr *CE) {
+int DataTracker::recordCallExpr(const CallExpr *CE) {
   CallExprs.push_back(CE);
   return 1;
 }
 
-int DataTracker::recordLoop(Stmt *S) {
+int DataTracker::recordLoop(const Stmt *S) {
   // Don't record loops inside a target region
-  if (LastKernel != NULL && LastKernel->contains(S->getBeginLoc()))
+  if (LastKernel != nullptr && LastKernel->contains(S->getBeginLoc()))
     return 0;
 
   Loops.push_back(S);
 
-  AccessInfo NewEntry;
+  AccessInfo NewEntry = {};
   NewEntry.VD      = nullptr;
   NewEntry.S       = S;
   NewEntry.Loc     = S->getBeginLoc();
@@ -301,12 +336,12 @@ int DataTracker::recordLoop(Stmt *S) {
   return 1;
 }
 
-int DataTracker::recordLocal(ValueDecl *VD) {
+int DataTracker::recordLocal(const ValueDecl *VD) {
   Locals.insert(VD);
   return 1;
 }
 
-int DataTracker::recordGlobal(ValueDecl *VD) {
+int DataTracker::recordGlobal(const ValueDecl *VD) {
   Globals.insert(VD);
   return 1;
 }
@@ -315,11 +350,11 @@ const std::vector<Kernel *> &DataTracker::getTargetRegions() const {
   return Kernels;
 }
 
-const std::vector<CallExpr *> &DataTracker::getCallExprs() const {
+const std::vector<const CallExpr *> &DataTracker::getCallExprs() const {
   return CallExprs;
 }
 
-const std::vector<Stmt *> &DataTracker::getLoops() const {
+const std::vector<const Stmt *> &DataTracker::getLoops() const {
   return Loops;
 }
 
@@ -327,22 +362,24 @@ const TargetDataRegion *DataTracker::getTargetDataScope() const {
   return TargetScope;
 }
 
-const boost::container::flat_set<ValueDecl *> &DataTracker::getLocals() const {
+const boost::container::flat_set<const ValueDecl *> &DataTracker::getLocals() const {
   return Locals;
 }
 
-const boost::container::flat_set<ValueDecl *> &DataTracker::getGlobals() const {
+const boost::container::flat_set<const ValueDecl *> &DataTracker::getGlobals() const {
   return Globals;
 }
 
-// Finds the outermost Stmt in ContainingStmt that captures S. Returns NULL on
-// error.
-const Stmt *DataTracker::findOutermostCapturingStmt(Stmt *ContainingStmt, Stmt *S) {
+/* Finds the outermost Stmt in ContainingStmt that captures S. Returns nullptr
+ * on error.
+ */
+const Stmt *DataTracker::findOutermostCapturingStmt(const Stmt *ContainingStmt,
+                                                    const Stmt *S) {
   const Stmt *CurrentStmt = S;
   while (true) {
     const auto &ImmediateParents = Context->getParents(*CurrentStmt);
     if (ImmediateParents.size() == 0)
-      return NULL;
+      return nullptr;
 
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
     if (ParentStmt == ContainingStmt)
@@ -405,8 +442,8 @@ void DataTracker::naiveAnalyze() {
 }
 
 struct DataFlowOf {
-  ValueDecl *VD;
-  DataFlowOf(ValueDecl *VD) : VD(VD) {}
+  const ValueDecl *VD;
+  DataFlowOf(const ValueDecl *VD) : VD(VD) {}
   bool operator()(const AccessInfo &Entry) {
     // Consider an entry in the access log to be in the flow of VD if the entry
     // contains info for VD or is a the beginning or end of a loop or kernel.
@@ -414,7 +451,7 @@ struct DataFlowOf {
   }
 };
 
-void DataTracker::analyzeValueDecl(ValueDecl *VD) {
+void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   bool MapTo = false;
   bool MapFrom = false;
   bool DataInitialized = false;
@@ -627,15 +664,27 @@ void DataTracker::analyze() {
   }
 
   // Map a list of all the data the TargetScope will be responsible for.
-  boost::container::flat_set<ValueDecl *> TargetScopeDecls;
+  boost::container::flat_set<const ValueDecl *> TargetScopeDecls;
   for (auto It = AccessLog.begin(); It != AccessLog.end(); ++It) {
     if (It->Flags & A_OFFLD)
       TargetScopeDecls.insert(It->VD);
   }
 
-  for (ValueDecl *VD : TargetScopeDecls) {
+  for (const ValueDecl *VD : TargetScopeDecls) {
     analyzeValueDecl(VD);
   }
+
+  return;
+}
+
+
+void analyzeValueDeclArrayBounds(const ValueDecl *VD) {
+
+  return;
+}
+
+void DataTracker::analyzeArrayBounds() {
+
 
   return;
 }
@@ -672,7 +721,7 @@ std::vector<uint8_t> DataTracker::getGlobalAccessModes() const {
   if (Globals.size() == 0)
     return results;
 
-  for (ValueDecl *Global : Globals) {
+  for (const ValueDecl *Global : Globals) {
     int Flags = A_NOP;
     for (AccessInfo Entry : AccessLog) {
       if (Entry.VD && Entry.VD->getID() == Global->getID())

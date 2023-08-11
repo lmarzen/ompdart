@@ -7,8 +7,10 @@
 using namespace clang;
 
 bool isPtrOrRefToConst(QualType Type);
-DeclRefExpr *getLeftmostDecl(Stmt *S);
-bool usedInStmt(Stmt *S, ValueDecl *VD);
-bool isaTargetKernel(Stmt *S);
+const DeclRefExpr *getLeftmostDecl(const Stmt *S);
+bool usedInStmt(const Stmt *S, const ValueDecl *VD);
+bool isaTargetKernel(const Stmt *S);
+const ArraySubscriptExpr *fetchArraySubscript(ASTContext *Context,
+                                              const DeclRefExpr *DRE);
 
 #endif

@@ -9,7 +9,7 @@ using namespace clang;
 
 struct UpdateDirInfo {
   const Stmt *FullStmt;
-  boost::container::flat_set<ValueDecl *> Decls;
+  boost::container::flat_set<const ValueDecl *> Decls;
 
   UpdateDirInfo(const Stmt *FullStmt)
       : FullStmt(FullStmt) {}
@@ -17,7 +17,7 @@ struct UpdateDirInfo {
 
 struct ClauseDirInfo {
   const OMPExecutableDirective *Directive;
-  boost::container::flat_set<ValueDecl *> FirstPrivateDecls;
+  boost::container::flat_set<const ValueDecl *> FirstPrivateDecls;
 
   ClauseDirInfo(const OMPExecutableDirective *Directive)
       : Directive(Directive) {}
@@ -26,7 +26,7 @@ struct ClauseDirInfo {
 /* Finds the outermost Stmt in ContainingStmt that captures S. Returns NULL on
  * error.
  */
-const Stmt *getSemiTerminatedStmt(ASTContext &Context, Stmt *S) {
+const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
   const Stmt *CurrentStmt = S;
   while (true) {
     const auto &ImmediateParents = Context.getParents(*CurrentStmt);
@@ -113,10 +113,10 @@ std::string getBodyIndentation(SourceManager &SourceMgr, const CompoundStmt *Bod
 
 /* Returns the whitespace representing a single level of indentation.
  */
-std::string getIndentationStep(SourceManager &SourceMgr, FunctionDecl *FD)
+std::string getIndentationStep(SourceManager &SourceMgr, const FunctionDecl *FD)
 {
   std::string ParentIndent = getIndentation(SourceMgr, FD->getBeginLoc());
-  CompoundStmt *Body = dyn_cast<CompoundStmt>(FD->getBody());
+  const CompoundStmt *Body = dyn_cast<CompoundStmt>(FD->getBody());
   if (!Body)
     return ParentIndent;
 
@@ -158,28 +158,28 @@ void rewriteDataMap(Rewriter &R,
 
   if (!Data->getMapAlloc().empty()) {
     MapDirective += " map(alloc:";
-    for (ValueDecl *VD : Data->getMapAlloc()) {
+    for (const ValueDecl *VD : Data->getMapAlloc()) {
       MapDirective += VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapTo().empty()) {
     MapDirective += " map(to:";
-    for (ValueDecl *VD : Data->getMapTo()) {
+    for (const ValueDecl *VD : Data->getMapTo()) {
       MapDirective += VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapFrom().empty()) {
     MapDirective += " map(from:";
-    for (ValueDecl *VD : Data->getMapFrom()) {
+    for (const ValueDecl *VD : Data->getMapFrom()) {
       MapDirective += VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapToFrom().empty()) {
     MapDirective += " map(tofrom:";
-    for (ValueDecl *VD : Data->getMapToFrom()) {
+    for (const ValueDecl *VD : Data->getMapToFrom()) {
       MapDirective += VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
@@ -255,7 +255,7 @@ void rewriteUpdateTo(Rewriter &R,
       std::string BodyIndent = getBodyIndentation(SM, Body);
       UpdateToDirective += BodyIndent + IndentStep;
       UpdateToDirective += "#pragma omp target update to(";
-      for (ValueDecl *VD : Update.Decls) {
+      for (const ValueDecl *VD : Update.Decls) {
         UpdateToDirective += VD->getNameAsString() + ",";
       }
       UpdateToDirective.back() = ')';
@@ -283,7 +283,7 @@ void rewriteUpdateTo(Rewriter &R,
       UpdateToDirective = "\n";
       UpdateToDirective += ParentIndent + IndentStep;
       UpdateToDirective += "#pragma omp target update to(";
-      for (ValueDecl *VD : Update.Decls) {
+      for (const ValueDecl *VD : Update.Decls) {
         UpdateToDirective += VD->getNameAsString() + ",";
       }
       UpdateToDirective.back() = ')';
@@ -375,7 +375,7 @@ void rewriteUpdateFrom(Rewriter &R,
 
       UpdateFromDirective += IndentStep;
       UpdateFromDirective += "#pragma omp target update from(";
-      for (ValueDecl *VD : Update.Decls) {
+      for (const ValueDecl *VD : Update.Decls) {
         UpdateFromDirective += VD->getNameAsString() + ",";
       }
       UpdateFromDirective.back() = ')';
@@ -410,7 +410,7 @@ void rewriteUpdateFrom(Rewriter &R,
       }
 
       UpdateFromDirective += "#pragma omp target update from(";
-      for (ValueDecl *VD : Update.Decls) {
+      for (const ValueDecl *VD : Update.Decls) {
         UpdateFromDirective += VD->getNameAsString() + ",";
       }
       UpdateFromDirective.back() = ')';
@@ -451,7 +451,7 @@ void rewriteClauses(Rewriter &R,
     std::string Clauses;
     if (!Directive.FirstPrivateDecls.empty()) {
       Clauses += " firstprivate(";
-      for (ValueDecl *VD : Directive.FirstPrivateDecls) {
+      for (const ValueDecl *VD : Directive.FirstPrivateDecls) {
         Clauses += VD->getNameAsString() + ",";
       }
       Clauses.back() = ')';
@@ -472,7 +472,7 @@ void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataR
     return;
 
   SourceManager &SM = R.getSourceMgr();
-  FunctionDecl *FD = Data->getContainingFunction();
+  const FunctionDecl *FD = Data->getContainingFunction();
   std::string IndentStep = getIndentationStep(SM, FD);    
 
   rewriteDataMap(R, Context, Data, IndentStep);

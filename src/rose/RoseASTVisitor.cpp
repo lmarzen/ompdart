@@ -111,8 +111,8 @@ bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
   if (!inLastFunction(BO->getBeginLoc()))
     return true;
 
-  DeclRefExpr *DRE = getLeftmostDecl(BO);
-  ValueDecl *VD = DRE->getDecl();
+  const DeclRefExpr *DRE = getLeftmostDecl(BO);
+  const ValueDecl *VD = DRE->getDecl();
 
   // Check to see if this value is read from the right hand side.
   if (BO->isCompoundAssignmentOp() || usedInStmt(BO->getRHS(), VD)) {
@@ -136,8 +136,9 @@ bool RoseASTVisitor::VisitUnaryOperator(UnaryOperator *UO) {
   if (!inLastFunction(UO->getBeginLoc()))
     return true;
 
-  DeclRefExpr *DRE = getLeftmostDecl(UO);
-  ValueDecl *VD = DRE->getDecl();
+  const DeclRefExpr *DRE = getLeftmostDecl(UO);
+  const ValueDecl *VD = DRE->getDecl();
+
   LastFunction->recordAccess(VD, DRE->getLocation(), UO, A_RDWR, true);
   return true;
 }
@@ -155,6 +156,19 @@ bool RoseASTVisitor::VisitDeclRefExpr(DeclRefExpr *DRE) {
     return true;
 
   LastFunction->recordAccess(VD, DRE->getLocation(), DRE, A_RDONLY, false);
+  return true;
+}
+
+bool RoseASTVisitor::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
+  if (!ASE->getBeginLoc().isValid()
+    || !SM->isInMainFile(ASE->getBeginLoc()))
+    return true;
+
+  const ValueDecl *BasePointer = getLeftmostDecl(ASE)->getDecl();
+  if (!inLastFunction(BasePointer->getBeginLoc()))
+    return true;
+
+  LastFunction->recordArrayAccess(BasePointer, ASE);
   return true;
 }
 

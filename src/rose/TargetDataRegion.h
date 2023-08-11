@@ -12,38 +12,38 @@ class TargetDataRegion {
 private:
   SourceLocation BeginLoc;
   SourceLocation EndLoc;
-  FunctionDecl *FD;
+  const FunctionDecl *FD;
 
-  std::vector<ValueDecl *> MapTo;
-  std::vector<ValueDecl *> MapFrom;
-  std::vector<ValueDecl *> MapToFrom;
-  std::vector<ValueDecl *> MapAlloc;
+  std::vector<const ValueDecl *> MapTo;
+  std::vector<const ValueDecl *> MapFrom;
+  std::vector<const ValueDecl *> MapToFrom;
+  std::vector<const ValueDecl *> MapAlloc;
   std::vector<AccessInfo> UpdateTo;
   std::vector<AccessInfo> UpdateFrom;
   std::vector<ClauseInfo> Private;
   std::vector<ClauseInfo> FirstPrivate;
-  std::vector<OMPExecutableDirective *> Kernels;
+  std::vector<const OMPExecutableDirective *> Kernels;
 
   // will directly update
   friend class DataTracker;
 
 public:
-  TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc, FunctionDecl *FD);
+  TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc, const FunctionDecl *FD);
 
   SourceLocation getBeginLoc() const;
   SourceLocation getEndLoc() const;
-  FunctionDecl *getContainingFunction() const;
+  const FunctionDecl *getContainingFunction() const;
   void print(llvm::raw_ostream &OS, const SourceManager &SM) const;
 
-  const std::vector<ValueDecl *> &getMapTo() const;
-  const std::vector<ValueDecl *> &getMapFrom() const;
-  const std::vector<ValueDecl *> &getMapToFrom() const;
-  const std::vector<ValueDecl *> &getMapAlloc() const;
+  const std::vector<const ValueDecl *> &getMapTo() const;
+  const std::vector<const ValueDecl *> &getMapFrom() const;
+  const std::vector<const ValueDecl *> &getMapToFrom() const;
+  const std::vector<const ValueDecl *> &getMapAlloc() const;
   const std::vector<AccessInfo> &getUpdateTo() const;
   const std::vector<AccessInfo> &getUpdateFrom() const;
   const std::vector<ClauseInfo> &getPrivate() const;
   const std::vector<ClauseInfo> &getFirstPrivate() const;
-  const std::vector<OMPExecutableDirective *> &getKernels() const;
+  const std::vector<const OMPExecutableDirective *> &getKernels() const;
 };
 
 #endif

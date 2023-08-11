@@ -12,62 +12,70 @@ using namespace clang;
 
 class DataTracker {
 private:
-  FunctionDecl *FD;
+  const FunctionDecl *FD;
   ASTContext *Context; 
   Kernel *LastKernel;
   TargetDataRegion *TargetScope;
 
   std::vector<AccessInfo> AccessLog;
   std::vector<Kernel *> Kernels;
-  std::vector<Stmt *> Loops;
-  std::vector<CallExpr *> CallExprs;
-  boost::container::flat_set<ValueDecl *> Locals;
-  boost::container::flat_set<ValueDecl *> Globals;
+  std::vector<const Stmt *> Loops;
+  std::vector<const CallExpr *> CallExprs;
+  boost::container::flat_set<const ValueDecl *> Locals;
+  boost::container::flat_set<const ValueDecl *> Globals;
 
-  int recordGlobal(ValueDecl *VD);
-  int updateParamsTouchedByCallee(FunctionDecl *Callee,
-                                  const std::vector<CallExpr *> &Calls,
+  const ValueDecl *LastArrayBasePointer;
+  const ArraySubscriptExpr *LastArraySubscript;
+
+  int recordGlobal(const ValueDecl *VD);
+  int updateParamsTouchedByCallee(const FunctionDecl *Callee,
+                                  const std::vector<const CallExpr *> &Calls,
                                   const std::vector<uint8_t> &ParamFlags);
-  int updateGlobalsTouchedByCallee(FunctionDecl *Callee,
-                                   const std::vector<CallExpr *> &Calls,
-                                   const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
+  int updateGlobalsTouchedByCallee(const FunctionDecl *Callee,
+                                   const std::vector<const CallExpr *> &Calls,
+                                   const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                                    const std::vector<uint8_t> &GlobalFlags);
-  const Stmt *findOutermostCapturingStmt(Stmt *ContainingStmt, Stmt *S);
+  const Stmt *findOutermostCapturingStmt(const Stmt *ContainingStmt,
+                                         const Stmt *S);
   int insertAccessLogEntry(const AccessInfo &NewEntry);
-  void analyzeValueDecl(ValueDecl *VD);
+  void analyzeValueDecl(const ValueDecl *VD);
+  void analyzeValueDeclArrayBounds(const ValueDecl *VD);
 
 public:
   DataTracker(FunctionDecl *FD, ASTContext *Context);
 
-  FunctionDecl *getDecl() const;
+  const FunctionDecl *getDecl() const;
 
   bool contains(SourceLocation Loc) const;
 
   // Returns 1 if value was actually recorded, 0 otherwise.
-  int recordAccess(ValueDecl *VD, SourceLocation Loc, Stmt *S, 
+  int recordAccess(const ValueDecl *VD, SourceLocation Loc, const Stmt *S, 
                    uint8_t Flags, bool overwrite = false);
   const std::vector<AccessInfo> &getAccessLog();
   // Returns int indicating number of updated log entries.
-  int updateTouchedByCallee(FunctionDecl *Callee,
+  int updateTouchedByCallee(const FunctionDecl *Callee,
                             const std::vector<uint8_t> &ParamFlags,
-                            const boost::container::flat_set<ValueDecl *> &GlobalsAccessed,
+                            const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                             const std::vector<uint8_t> &GlobalFlags);
   void printAccessLog() const;
 
   int recordTargetRegion(Kernel *K);
-  int recordCallExpr(CallExpr *CE);
-  int recordLoop(Stmt *S);
-  int recordLocal(ValueDecl *VD);
+  int recordCallExpr(const CallExpr *CE);
+  int recordArrayAccess(const ValueDecl *BasePointer,
+                        const ArraySubscriptExpr *Subscript);
+  int recordLoop(const Stmt *S);
+  int recordLocal(const ValueDecl *VD);
 
   const std::vector<Kernel *> &getTargetRegions() const;
-  const std::vector<CallExpr *> &getCallExprs() const;
-  const std::vector<Stmt *> &getLoops() const;
+  const std::vector<const CallExpr *> &getCallExprs() const;
+  const std::vector<const Stmt *> &getLoops() const;
   const TargetDataRegion *getTargetDataScope() const;
-  const boost::container::flat_set<ValueDecl *> &getLocals() const;
-  const boost::container::flat_set<ValueDecl *> &getGlobals() const;
+  const boost::container::flat_set<const ValueDecl *> &getLocals() const;
+  const boost::container::flat_set<const ValueDecl *> &getGlobals() const;
 
   void naiveAnalyze();
   void analyze();
+  void analyzeArrayBounds();
   std::vector<uint8_t> getParamAccessModes() const;
   std::vector<uint8_t> getGlobalAccessModes() const;
 };

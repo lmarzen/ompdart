@@ -38,6 +38,7 @@ public:
   virtual bool VisitBinaryOperator(BinaryOperator *BO);
   virtual bool VisitUnaryOperator(UnaryOperator *UO);
   virtual bool VisitDeclRefExpr(DeclRefExpr *DRE);
+  virtual bool VisitArraySubscriptExpr(ArraySubscriptExpr *ASE);
   virtual bool VisitDoStmt(DoStmt *DS);
   virtual bool VisitForStmt(ForStmt *FS);
   virtual bool VisitWhileStmt(WhileStmt *WS);

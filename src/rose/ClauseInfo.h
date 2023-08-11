@@ -6,10 +6,10 @@
 using namespace clang;
 
 struct ClauseInfo {
-  OMPExecutableDirective *Directive;
-  ValueDecl *VD;
+  const OMPExecutableDirective *Directive;
+  const ValueDecl *VD;
 
-  ClauseInfo(OMPExecutableDirective *Directive, ValueDecl *VD)
+  ClauseInfo(const OMPExecutableDirective *Directive, const ValueDecl *VD)
       : Directive(Directive), VD(VD) {}
 };
 
