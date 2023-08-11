@@ -47,27 +47,6 @@ bool usedInStmt(const Stmt *S, const ValueDecl *VD) {
   return false;
 }
 
-/* Returns a pointer to the array subscript associated with DRE. Returns nullptr
- * if VD does not have an array subscript.
- */
-const ArraySubscriptExpr *fetchArraySubscript(ASTContext *Context, const DeclRefExpr *DRE) {
-  const Stmt *CurrentStmt = dyn_cast<Stmt>(DRE);
-  const ArraySubscriptExpr *Subscript = nullptr;
-  do {
-    const auto &ImmediateParents = Context->getParents(*CurrentStmt);
-    if (ImmediateParents.size() == 0)
-      return nullptr;
-
-    const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
-
-    CurrentStmt = ParentStmt;
-    Subscript = dyn_cast<ArraySubscriptExpr>(CurrentStmt);
-  } while (!Subscript);
-
-  const DeclRefExpr *Leftmost = getLeftmostDecl(CurrentStmt);
-  return (Leftmost == DRE) ? Subscript : nullptr;
-}
-
 bool isaTargetKernel(const Stmt *S) {
   return isa<OMPTargetDirective>(S)
       || isa<OMPTargetParallelDirective>(S)
