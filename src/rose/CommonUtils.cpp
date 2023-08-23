@@ -59,5 +59,6 @@ bool isaTargetKernel(const Stmt *S) {
       || isa<OMPTargetTeamsDistributeParallelForDirective>(S)
       || isa<OMPTargetTeamsDistributeParallelForSimdDirective>(S)
       || isa<OMPTargetTeamsDistributeSimdDirective>(S)
-      || isa<OMPTargetTeamsGenericLoopDirective>(S);
+      || isa<OMPTargetTeamsGenericLoopDirective>(S)
+      || isa<OMPTargetParallelGenericLoopDirective>(S);
 }
