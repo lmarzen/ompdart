@@ -1,6 +1,7 @@
 #include "DataTracker.h"
 
 #include "clang/AST/ParentMapContext.h"
+#include "clang/Basic/SourceManager.h"
 
 #include "CommonUtils.h"
 
@@ -47,9 +48,10 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
   // New accesses will usually be somewhere within the last few SourceLocations
   // so iterating backwards is quick.
   std::vector<AccessInfo>::iterator It = AccessLog.end();
+  clang::SourceManager &SM = Context->getSourceManager();
   do {
     --It;
-  } while (NewEntry.Loc < It->Loc);
+  } while (SM.isBeforeInTranslationUnit(NewEntry.Loc, It->Loc));
 
   // insert at correct position in AccessLog
   ++It;
@@ -92,8 +94,8 @@ int DataTracker::recordAccess(const ValueDecl *VD,
         return 0;
     }
 
-    if (LastKernel->contains(Loc))
-      Flags |= A_OFFLD;
+    // if (LastKernel->contains(Loc))
+    //   Flags |= A_OFFLD;
   }
 
   // check for existing log entry
@@ -370,6 +372,24 @@ const boost::container::flat_set<const ValueDecl *> &DataTracker::getGlobals() c
   return Globals;
 }
 
+void DataTracker::classifyOffloadedOps() {
+  // Find target region bounds.
+  for (Kernel *K : Kernels) {
+    AccessInfo Lower, Upper;
+    Lower.Loc = K->getBeginLoc();
+    Upper.Loc = K->getEndLoc();
+    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
+    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
+    for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
+      if (It->Flags)
+        It->Flags |= A_OFFLD;
+
+    }
+  }
+
+  return;
+}
+
 /* Finds the outermost Stmt in ContainingStmt that captures S. Returns nullptr
  * on error.
  */
@@ -392,14 +412,7 @@ const Stmt *DataTracker::findOutermostCapturingStmt(const Stmt *ContainingStmt,
 /* Naive approach. Single target region analysis only.
  */
 void DataTracker::naiveAnalyze() {
-  // Find target region bounds.
-  for (Kernel *K : Kernels) {
-    AccessInfo Lower, Upper;
-    Lower.Loc = K->getBeginLoc();
-    Upper.Loc = K->getEndLoc();
-    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
-    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
-  }
+  classifyOffloadedOps();
 
   for (Kernel *K : Kernels) {
     // Seperate reads and writes into their own sets.
@@ -644,6 +657,8 @@ void DataTracker::analyze() {
     // There is nothing to analyze.
     return;
   }
+
+  classifyOffloadedOps();
 
   // Identify the root(outermost) target scope in the function.
   const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());

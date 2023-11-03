@@ -7,6 +7,8 @@
 using namespace clang;
 
 bool isPtrOrRefToConst(QualType Type);
+bool isMemAlloc(const FunctionDecl *Callee);
+bool isMemDealloc(const FunctionDecl *Callee);
 const DeclRefExpr *getLeftmostDecl(const Stmt *S);
 bool usedInStmt(const Stmt *S, const ValueDecl *VD);
 bool isaTargetKernel(const Stmt *S);

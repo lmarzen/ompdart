@@ -21,6 +21,7 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
 
   llvm::outs() << "\n================================================================================n";
   for (DataTracker *DT : FunctionTrackers) {
+    DT->classifyOffloadedOps();
     DT->printAccessLog();
     // computes data mappings for the scope of single target regions
     DT->naiveAnalyze();
@@ -54,6 +55,16 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     llvm::outs() << "\nTargetScope #" << I++;
     Scope->print(llvm::outs(), *SM);
     rewriteTargetDataRegion(TheRewriter, Context, Scope);
+  }
+
+  
+  for (DataTracker *DT : FunctionTrackers) {
+    const FunctionDecl *funcDecl = DT->getDecl();
+    Stmt *funcBody = funcDecl->getBody();
+    static std::unique_ptr<CFG> sourceCFG = CFG::buildCFG(
+          funcDecl, funcBody, &Context, clang::CFG::BuildOptions());
+      auto langOpt = Context.getLangOpts();
+      sourceCFG->dump(langOpt, true);
   }
 
   FileID FID = SM->getMainFileID();

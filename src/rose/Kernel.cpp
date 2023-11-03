@@ -14,9 +14,8 @@ const FunctionDecl *Kernel::getFunction() const {
 }
 
 bool Kernel::contains(SourceLocation Loc) const {
-  const CapturedStmt *CS = TD->getInnermostCapturedStmt();
-  SourceLocation CSBeginLoc = CS->getBeginLoc();
-  SourceLocation CSEndLoc = CS->getEndLoc();
+  SourceLocation CSBeginLoc = this->getBeginLoc();
+  SourceLocation CSEndLoc = this->getEndLoc();
   return (CSBeginLoc <= Loc) && (Loc < CSEndLoc);
 }
 
@@ -25,7 +24,14 @@ SourceLocation Kernel::getBeginLoc() const {
 }
 
 SourceLocation Kernel::getEndLoc() const {
-  return TD->getInnermostCapturedStmt()->getEndLoc();
+  SourceLocation EndLoc = TD->getInnermostCapturedStmt()->getEndLoc();
+  for (const OMPExecutableDirective *Captured : NestedDirectives) {
+    SourceLocation CapturedEndLoc =
+        Captured->getInnermostCapturedStmt()->getEndLoc();
+    if (CapturedEndLoc > EndLoc)
+      EndLoc = CapturedEndLoc;
+  }
+  return EndLoc;
 }
 
 int Kernel::recordPrivate(const ValueDecl *VD) {
@@ -50,12 +56,12 @@ void Kernel::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
   OS << "\n|-- Function: " << FD->getNameAsString();
   OS << "\n|-- Location: ";
   TD->getBeginLoc().print(OS, SM);
-  TD->getEndLoc().print(OS, SM);
+  // TD->getEndLoc().print(OS, SM);
   OS << "\n|   |-- InnermostCapturedStmt";
   OS << "\n|   |   |-- BeginLoc: ";
-  TD->getInnermostCapturedStmt()->getBeginLoc().print(OS, SM);
+  this->getBeginLoc().print(OS, SM);
   OS << "\n|   |   |-- EndLoc  : ";
-  TD->getInnermostCapturedStmt()->getEndLoc().print(OS, SM);
+  this->getEndLoc().print(OS, SM);
 
   OS << "\n|-- Data";
   if (PrivateDecls.size())

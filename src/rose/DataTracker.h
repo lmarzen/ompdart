@@ -73,6 +73,7 @@ public:
   const boost::container::flat_set<const ValueDecl *> &getLocals() const;
   const boost::container::flat_set<const ValueDecl *> &getGlobals() const;
 
+  void classifyOffloadedOps();
   void naiveAnalyze();
   void analyze();
   void analyzeArrayBounds();

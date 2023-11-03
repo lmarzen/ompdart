@@ -15,6 +15,28 @@ bool isPtrOrRefToConst(QualType Type) {
   return Type.isConstQualified();
 }
 
+// Check if function is a standard memory allocation functions.
+// Returns true on functions that allocate memory without guarantee of contents.
+// This excludes calloc since calloc writes 0's.
+bool isMemAlloc(const FunctionDecl *Callee) {
+  std::string Name = Callee->getNameAsString();
+  if (Name == "malloc" || Name == "realloc") {
+      llvm::outs() << "Call to " << Name << " found.\n";
+      return true;
+  }
+  return false;
+}
+
+// Check if function is a standard memory deallocation functions.
+bool isMemDealloc(const FunctionDecl *Callee) {
+  std::string Name = Callee->getNameAsString();
+  if (Name == "free") {
+      llvm::outs() << "Call to " << Name << " found.\n";
+      return true;
+  }
+  return false;
+}
+
 /* Searches the leftmost descendants for to find DeclRefExpr and returns it.
  * Returns nullptr if not found.
  */

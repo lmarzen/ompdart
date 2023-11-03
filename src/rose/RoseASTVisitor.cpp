@@ -1,5 +1,7 @@
 #include "RoseASTVisitor.h"
 
+#include "clang/AST/ParentMapContext.h"
+
 #include "CommonUtils.h"
 
 using namespace clang;
@@ -77,6 +79,8 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
   FunctionDecl *Callee = CE->getDirectCallee();
   if (!Callee)
     return true;
+  // if (isMemAllocOrDealloc(Callee))
+  //   return true;
   
   LastFunction->recordCallExpr(CE);
   Expr **Args = CE->getArgs();
@@ -88,15 +92,28 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
       // is a literal
       continue;
     }
+    // else if (!SM->isInMainFile(SM->getSpellingLoc(DRE->getBeginLoc()))) {
+    //   // is externed
+    //   continue;
+    // }
+
+
     ValueDecl *VD = DRE->getDecl();
+    uint8_t AccessType;
     if ( (ParamType->isPointerType() || ParamType->isReferenceType() )
       && !isPtrOrRefToConst(ParamType)) {
       // passed by pointer/reference (to non-const)
-      LastFunction->recordAccess(VD, DRE->getLocation(), CE, A_UNKNOWN, true);
+      AccessType = A_UNKNOWN;
     } else {
       // passed by pointer/reference (to const) OR passed by value
-      LastFunction->recordAccess(VD, DRE->getLocation(), CE, A_RDONLY, true);
+      AccessType = A_RDONLY;
     }
+
+    if (isMemDealloc(Callee)) {
+      // No need for data transfer when freeing a memory.
+      AccessType = A_NOP;
+    }
+    LastFunction->recordAccess(VD, DRE->getLocation(), CE, AccessType, true);
   }
 
   return true;
@@ -114,15 +131,19 @@ bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
   const DeclRefExpr *DRE = getLeftmostDecl(BO);
   const ValueDecl *VD = DRE->getDecl();
 
+  uint8_t AccessType;
   // Check to see if this value is read from the right hand side.
   if (BO->isCompoundAssignmentOp() || usedInStmt(BO->getRHS(), VD)) {
     // If value is read from the right hand side, then technically this is a
     // read, but chronologically it was read first. So mark as ReadWrite so that
     // we don't mistake this ValueDecl for being Writen to first.
-    LastFunction->recordAccess(VD, DRE->getLocation(), BO, A_RDWR, true);
+    AccessType = A_RDWR;
   } else {
-    LastFunction->recordAccess(VD, DRE->getLocation(), BO, A_WRONLY, true);
+    AccessType = A_WRONLY;
   }
+
+  // TODO: if is malloc assignment then A_NOP
+  LastFunction->recordAccess(VD, DRE->getLocation(), BO, AccessType, true);
 
   return true;
 }
