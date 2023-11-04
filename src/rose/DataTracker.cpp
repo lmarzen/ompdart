@@ -14,6 +14,10 @@ struct LoopDependency {
   AccessInfo *FirstHostAccess;
 };
 
+struct CondDependency {
+  AccessInfo Conditional;
+};
+
 DataTracker::DataTracker(FunctionDecl *FD, ASTContext *Context) {
   this->FD = FD;
   this->Context = Context;
@@ -547,6 +551,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   bool DataFirstPrivate = false;
   bool UsedInLastKernel = false;
   std::stack<LoopDependency> LoopDependencyStack;
+  std::stack<CondDependency> CondDependencyStack;
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool MapAlloc = !IsArithmeticType;
@@ -590,6 +595,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         // directive directly before the loop end.
         FirstAccess.Barrier = ScopeBarrier::LoopEnd; 
         TargetScope->UpdateFrom.emplace_back(FirstAccess);
+        DataValidOnHost = true;
       }
       if ((LD.DataValidOnDevice && !DataValidOnDevice && LD.FirstHostAccess)
        || (!LD.MapTo && MapTo && !DataValidOnDevice)) {
@@ -598,6 +604,17 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       }
       LoopDependencyStack.pop();
 
+    } else if (It->Barrier == ScopeBarrier::CondBegin) {
+      CondDependency CD;
+      CD.Conditional       = *It;
+      CD.Conditional.VD    = VD;
+      CondDependencyStack.emplace(CD);
+    } else if (It->Barrier == ScopeBarrier::CondCase) {
+    } else if (It->Barrier == ScopeBarrier::CondFallback) {
+    } else if (It->Barrier == ScopeBarrier::CondEnd) {
+      CondDependencyStack.pop();
+
+      
     } else if (It->Barrier == ScopeBarrier::KernelBegin) {
       if (IsArithmeticType && !DataValidOnDevice) {
         DataFirstPrivate = true;
@@ -687,6 +704,9 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       else if (!DataValidOnHost && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
         if (TargetScope->EndLoc < It->Loc) {
           MapFrom = true;
+        } else if (!CondDependencyStack.empty()) {
+          TargetScope->UpdateFrom.emplace_back(
+              CondDependencyStack.top().Conditional);
         } else {
           TargetScope->UpdateFrom.emplace_back(*It);
         }
