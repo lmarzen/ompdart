@@ -338,6 +338,80 @@ int DataTracker::recordLoop(const Stmt *S) {
   return 1;
 }
 
+int DataTracker::recordCond(const Stmt *S) {
+  // Don't record if already accounted for. Each subcase of an IfStmt will be
+  // seen here so this stops those from being doubled counted since we will
+  // process each subcase when we encounter the first case.
+  for (const Stmt *Temp : Conds) {
+    if (Temp == S)
+      return 0;
+  }
+  Conds.push_back(S);
+
+  llvm::outs() << "Conditional Begin: " << S->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
+  llvm::outs() << "Conditional End: " << S->getEndLoc().printToString(Context->getSourceManager()) << "\n";
+
+  AccessInfo NewEntry = {};
+  NewEntry.VD      = nullptr;
+  NewEntry.S       = S;
+  NewEntry.Loc     = S->getBeginLoc();
+  NewEntry.Flags   = A_NOP;
+  NewEntry.Barrier = ScopeBarrier::CondBegin;
+  insertAccessLogEntry(NewEntry);
+
+  if (const IfStmt *IF = dyn_cast<const IfStmt>(S)) {
+    while (IF->hasElseStorage()) {
+      const Stmt *Else = IF->getElse();
+      SourceLocation Loc = IF->getElseLoc();
+      IF = (dyn_cast<const IfStmt>(Else));
+      if (IF) {
+        // offset -1 removes ambiguity of position with beginning of the
+        // conditional statement
+        NewEntry.Loc     = Loc;
+        NewEntry.Barrier = ScopeBarrier::CondCase;
+        llvm::outs() << "IF Case: " << Loc.printToString(Context->getSourceManager()) << "\n";
+        insertAccessLogEntry(NewEntry);
+      } else {
+        // offset -1 removes ambiguity of position with beginning of the
+        // else statement body
+        NewEntry.Loc     = Loc;
+        NewEntry.Barrier = ScopeBarrier::CondFallback;
+        llvm::outs() << "IF Fallback: " << Loc.printToString(Context->getSourceManager()) << "\n";
+        insertAccessLogEntry(NewEntry);
+        break;
+      }
+    }
+  } else if (const SwitchStmt *SS = dyn_cast<const SwitchStmt>(S)) {
+    const SwitchCase *Case = SS->getSwitchCaseList();
+    do {
+      if (isa<DefaultStmt>(Case))
+        NewEntry.Barrier = ScopeBarrier::CondFallback;
+      else
+        NewEntry.Barrier = ScopeBarrier::CondCase;
+
+      if (isa<DefaultStmt>(Case))
+        llvm::outs() << "SS CondFallback: " << Case->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
+      else
+        llvm::outs() << "SS CondCase: " << Case->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
+      
+      NewEntry.Loc     = Case->getBeginLoc();
+      NewEntry.Barrier = ScopeBarrier::CondCase;
+      insertAccessLogEntry(NewEntry);
+
+      Case = Case->getNextSwitchCase();
+    } while (Case);
+
+  } else {
+    llvm::outs() << "Unknown Conditional Type.\n";
+  }
+
+  NewEntry.Loc     = S->getEndLoc();
+  NewEntry.Barrier = ScopeBarrier::CondEnd;
+  insertAccessLogEntry(NewEntry);
+
+  return 1;
+}
+
 int DataTracker::recordLocal(const ValueDecl *VD) {
   Locals.insert(VD);
   return 1;

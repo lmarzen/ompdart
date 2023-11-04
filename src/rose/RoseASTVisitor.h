@@ -42,6 +42,8 @@ public:
   virtual bool VisitDoStmt(DoStmt *DS);
   virtual bool VisitForStmt(ForStmt *FS);
   virtual bool VisitWhileStmt(WhileStmt *WS);
+  virtual bool VisitIfStmt(IfStmt *IS);
+  virtual bool VisitSwitchStmt(SwitchStmt *SS);
   virtual bool VisitOMPExecutableDirective(OMPExecutableDirective *S);
 
 }; // end class RoseASTVisitor

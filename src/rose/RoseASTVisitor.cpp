@@ -79,8 +79,6 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
   FunctionDecl *Callee = CE->getDirectCallee();
   if (!Callee)
     return true;
-  // if (isMemAllocOrDealloc(Callee))
-  //   return true;
   
   LastFunction->recordCallExpr(CE);
   Expr **Args = CE->getArgs();
@@ -96,7 +94,6 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
     //   // is externed
     //   continue;
     // }
-
 
     ValueDecl *VD = DRE->getDecl();
     uint8_t AccessType;
@@ -142,9 +139,7 @@ bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
     AccessType = A_WRONLY;
   }
 
-  // TODO: if is malloc assignment then A_NOP
   LastFunction->recordAccess(VD, DRE->getLocation(), BO, AccessType, true);
-
   return true;
 }
 
@@ -223,6 +218,28 @@ bool RoseASTVisitor::VisitWhileStmt(WhileStmt *WS) {
     return true;
 
   LastFunction->recordLoop(WS);
+  return true;
+}
+
+bool RoseASTVisitor::VisitIfStmt(IfStmt *IS) {
+  if (!IS->getBeginLoc().isValid()
+    || !SM->isInMainFile(IS->getBeginLoc()))
+    return true;
+  if (!inLastFunction(IS->getBeginLoc()))
+    return true;
+
+  LastFunction->recordCond(IS);
+  return true;
+}
+
+bool RoseASTVisitor::VisitSwitchStmt(SwitchStmt *SS) {
+  if (!SS->getBeginLoc().isValid()
+    || !SM->isInMainFile(SS->getBeginLoc()))
+    return true;
+  if (!inLastFunction(SS->getBeginLoc()))
+    return true;
+
+  LastFunction->recordCond(SS);
   return true;
 }
 

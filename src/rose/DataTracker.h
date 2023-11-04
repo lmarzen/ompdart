@@ -20,6 +20,7 @@ private:
   std::vector<AccessInfo> AccessLog;
   std::vector<Kernel *> Kernels;
   std::vector<const Stmt *> Loops;
+  std::vector<const Stmt *> Conds;
   std::vector<const CallExpr *> CallExprs;
   boost::container::flat_set<const ValueDecl *> Locals;
   boost::container::flat_set<const ValueDecl *> Globals;
@@ -64,6 +65,7 @@ public:
   int recordArrayAccess(const ValueDecl *BasePointer,
                         const ArraySubscriptExpr *Subscript);
   int recordLoop(const Stmt *S);
+  int recordCond(const Stmt *S);
   int recordLocal(const ValueDecl *VD);
 
   const std::vector<Kernel *> &getTargetRegions() const;

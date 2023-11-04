@@ -19,8 +19,10 @@ enum ScopeBarrier : uint8_t {
   KernelEnd,
   LoopBegin,
   LoopEnd,
-  ConditionalBegin,
-  ConditionalEnd
+  CondBegin,
+  CondCase,
+  CondFallback,
+  CondEnd
 };
 
 struct ArrayAccess {
