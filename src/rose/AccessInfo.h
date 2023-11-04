@@ -41,26 +41,6 @@ struct AccessInfo {
   ScopeBarrier Barrier; // Indicates begin/end of a block scope
   const ArraySubscriptExpr *ArraySubscript;
   std::vector<ArrayAccess> ArrayBounds;
-
-  // comparison operators - compare by source location
-  friend bool operator<(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() < R.Loc.getRawEncoding();
-  }
-  friend bool operator>(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() > R.Loc.getRawEncoding();
-  }
-  friend bool operator<=(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() <= R.Loc.getRawEncoding();
-  }
-  friend bool operator>=(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() >= R.Loc.getRawEncoding();
-  }
-  friend bool operator==(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() == R.Loc.getRawEncoding();
-  }
-  friend bool operator!=(const AccessInfo &L, const AccessInfo &R) {
-    return L.Loc.getRawEncoding() != R.Loc.getRawEncoding();
-  }
 };
 
 #endif

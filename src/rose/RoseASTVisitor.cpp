@@ -249,7 +249,7 @@ bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
       !SM->isInMainFile(S->getBeginLoc()))
     return true;
   if (isaTargetKernel(S)) {
-    LastKernel = new Kernel(S, LastFunction->getDecl());
+    LastKernel = new Kernel(S, LastFunction->getDecl(), Context);
     LastFunction->recordTargetRegion(LastKernel);
     Kernels.push_back(LastKernel);
     return true;

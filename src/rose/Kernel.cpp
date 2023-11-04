@@ -1,9 +1,12 @@
 #include "Kernel.h"
 
+#include "clang/Basic/SourceManager.h"
+
 using namespace clang;
 
-Kernel::Kernel(const OMPExecutableDirective *TD, const FunctionDecl *FD) 
-  : TD(TD), FD(FD) {}
+Kernel::Kernel(const OMPExecutableDirective *TD, const FunctionDecl *FD,
+               ASTContext *Context) 
+  : Context(Context), TD(TD), FD(FD) {}
 
 const OMPExecutableDirective *Kernel::getDirective() const {
   return TD;
@@ -14,9 +17,11 @@ const FunctionDecl *Kernel::getFunction() const {
 }
 
 bool Kernel::contains(SourceLocation Loc) const {
+  SourceManager &SM = Context->getSourceManager();
   SourceLocation CSBeginLoc = this->getBeginLoc();
   SourceLocation CSEndLoc = this->getEndLoc();
-  return (CSBeginLoc <= Loc) && (Loc < CSEndLoc);
+  return !SM.isBeforeInTranslationUnit(Loc, CSBeginLoc)
+         && SM.isBeforeInTranslationUnit(Loc, CSEndLoc);
 }
 
 SourceLocation Kernel::getBeginLoc() const {
@@ -24,11 +29,12 @@ SourceLocation Kernel::getBeginLoc() const {
 }
 
 SourceLocation Kernel::getEndLoc() const {
+  SourceManager &SM = Context->getSourceManager();
   SourceLocation EndLoc = TD->getInnermostCapturedStmt()->getEndLoc();
   for (const OMPExecutableDirective *Captured : NestedDirectives) {
     SourceLocation CapturedEndLoc =
         Captured->getInnermostCapturedStmt()->getEndLoc();
-    if (CapturedEndLoc > EndLoc)
+    if (SM.isBeforeInTranslationUnit(EndLoc, CapturedEndLoc))
       EndLoc = CapturedEndLoc;
   }
   return EndLoc;

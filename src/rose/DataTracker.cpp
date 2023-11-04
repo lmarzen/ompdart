@@ -36,10 +36,12 @@ const FunctionDecl *DataTracker::getDecl() const {
 }
 
 bool DataTracker::contains(SourceLocation Loc) const {
+  SourceManager &SM = Context->getSourceManager();
   Stmt *Body = FD->getBody();
   SourceLocation BodyBeginLoc = Body->getBeginLoc();
   SourceLocation BodyEndLoc = Body->getEndLoc();
-  return (BodyBeginLoc <= Loc) && (Loc < BodyEndLoc);
+  return !SM.isBeforeInTranslationUnit(Loc, BodyBeginLoc)
+         && SM.isBeforeInTranslationUnit(Loc, BodyEndLoc);
 }
 
 int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
@@ -52,7 +54,7 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
   // New accesses will usually be somewhere within the last few SourceLocations
   // so iterating backwards is quick.
   std::vector<AccessInfo>::iterator It = AccessLog.end();
-  clang::SourceManager &SM = Context->getSourceManager();
+  SourceManager &SM = Context->getSourceManager();
   do {
     --It;
   } while (SM.isBeforeInTranslationUnit(NewEntry.Loc, It->Loc));
@@ -68,6 +70,7 @@ int DataTracker::recordAccess(const ValueDecl *VD,
                               const Stmt *S,
                               uint8_t Flags,
                               bool overwrite) {
+  SourceManager &SM = Context->getSourceManager();
   if (LastKernel) {
     // Don't record private data.
     if (LastKernel->isPrivate(VD))
@@ -83,18 +86,22 @@ int DataTracker::recordAccess(const ValueDecl *VD,
     if (VD->getNameAsString()[0] == '.')
       return 0;
 
-    if (LastKernel->getDirective()->getBeginLoc() <= VD->getBeginLoc()
-     && VD->getBeginLoc() < LastKernel->getDirective()->getEndLoc())
+    if (!SM.isBeforeInTranslationUnit(VD->getBeginLoc(), 
+                                      LastKernel->getDirective()->getBeginLoc())
+     && SM.isBeforeInTranslationUnit(VD->getBeginLoc(), 
+                                     LastKernel->getDirective()->getEndLoc()))
       return 0;
-
-    if (LastKernel->getDirective()->getBeginLoc() <= Loc
-     && Loc < LastKernel->getDirective()->getEndLoc())
+      
+    if (!SM.isBeforeInTranslationUnit(Loc, 
+                                      LastKernel->getDirective()->getBeginLoc())
+     && SM.isBeforeInTranslationUnit(Loc, 
+                                     LastKernel->getDirective()->getEndLoc()))
       return 0;
 
     if (LastKernel->NestedDirectives.size() > 0) {
       auto *NestedDir = LastKernel->NestedDirectives.back();
-      if (NestedDir->getBeginLoc() <= Loc
-       && Loc < NestedDir->getEndLoc())
+      if (!SM.isBeforeInTranslationUnit(Loc, NestedDir->getBeginLoc())
+       && SM.isBeforeInTranslationUnit(Loc, NestedDir->getEndLoc()))
         return 0;
     }
 
@@ -352,9 +359,6 @@ int DataTracker::recordCond(const Stmt *S) {
   }
   Conds.push_back(S);
 
-  llvm::outs() << "Conditional Begin: " << S->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
-  llvm::outs() << "Conditional End: " << S->getEndLoc().printToString(Context->getSourceManager()) << "\n";
-
   AccessInfo NewEntry = {};
   NewEntry.VD      = nullptr;
   NewEntry.S       = S;
@@ -373,14 +377,12 @@ int DataTracker::recordCond(const Stmt *S) {
         // conditional statement
         NewEntry.Loc     = Loc;
         NewEntry.Barrier = ScopeBarrier::CondCase;
-        llvm::outs() << "IF Case: " << Loc.printToString(Context->getSourceManager()) << "\n";
         insertAccessLogEntry(NewEntry);
       } else {
         // offset -1 removes ambiguity of position with beginning of the
         // else statement body
         NewEntry.Loc     = Loc;
         NewEntry.Barrier = ScopeBarrier::CondFallback;
-        llvm::outs() << "IF Fallback: " << Loc.printToString(Context->getSourceManager()) << "\n";
         insertAccessLogEntry(NewEntry);
         break;
       }
@@ -392,11 +394,6 @@ int DataTracker::recordCond(const Stmt *S) {
         NewEntry.Barrier = ScopeBarrier::CondFallback;
       else
         NewEntry.Barrier = ScopeBarrier::CondCase;
-
-      if (isa<DefaultStmt>(Case))
-        llvm::outs() << "SS CondFallback: " << Case->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
-      else
-        llvm::outs() << "SS CondCase: " << Case->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
       
       NewEntry.Loc     = Case->getBeginLoc();
       NewEntry.Barrier = ScopeBarrier::CondCase;
@@ -451,17 +448,24 @@ const boost::container::flat_set<const ValueDecl *> &DataTracker::getGlobals() c
 }
 
 void DataTracker::classifyOffloadedOps() {
+  SourceManager &SM = Context->getSourceManager();
   // Find target region bounds.
   for (Kernel *K : Kernels) {
-    AccessInfo Lower, Upper;
-    Lower.Loc = K->getBeginLoc();
-    Upper.Loc = K->getEndLoc();
-    K->AccessLogBegin = std::lower_bound(AccessLog.begin(), AccessLog.end(), Lower);
-    K->AccessLogEnd   = std::upper_bound(AccessLog.begin(), AccessLog.end(), Upper);
-    for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
-      if (It->Flags)
-        It->Flags |= A_OFFLD;
+    SourceLocation Lower = K->getBeginLoc();
+    SourceLocation Upper = K->getEndLoc();
+    auto It = AccessLog.begin();
+    for (; SM.isBeforeInTranslationUnit(It->Loc, Lower) 
+           && It != AccessLog.end()
+         ; ++It) {}
+    K->AccessLogBegin = It == AccessLog.end() ? AccessLog.end() : --It;
+    for (; SM.isBeforeInTranslationUnit(It->Loc, Upper)
+           && It != AccessLog.end()
+         ; ++It) {}
+    K->AccessLogEnd = It;
 
+    for (auto OffIt = K->AccessLogBegin; OffIt != K->AccessLogEnd; ++OffIt) {
+      if (OffIt->Flags)
+        OffIt->Flags |= A_OFFLD;
     }
   }
 
@@ -543,6 +547,7 @@ struct DataFlowOf {
 };
 
 void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
+  SourceManager &SM = Context->getSourceManager();
   bool MapTo = false;
   bool MapFrom = false;
   bool DataInitialized = false;
@@ -550,6 +555,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   bool DataValidOnDevice = false;
   bool DataFirstPrivate = false;
   bool UsedInLastKernel = false;
+  bool PrevMapTo = false;
   std::stack<LoopDependency> LoopDependencyStack;
   std::stack<CondDependency> CondDependencyStack;
 
@@ -618,25 +624,25 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     } else if (It->Barrier == ScopeBarrier::KernelBegin) {
       if (IsArithmeticType && !DataValidOnDevice) {
         DataFirstPrivate = true;
-        DataValidOnDevice = true;
         UsedInLastKernel = false;
+        PrevMapTo = MapTo;
       }
     } else if (It->Barrier == ScopeBarrier::KernelEnd) {
       if (IsArithmeticType && DataFirstPrivate) {
-        DataFirstPrivate = false;
-        DataValidOnDevice = false;
+        // VD was a read-only scalar for this kernel and wasn't present already.
+        // Undo data mappings and change to firsrprivate.
+        if (!TargetScope->UpdateTo.empty() 
+         && TargetScope->UpdateTo.back().Loc == PrevHostIt->Loc)
+          TargetScope->UpdateTo.pop_back();
+        MapTo = PrevMapTo;
         if (UsedInLastKernel)
           TargetScope->FirstPrivate.emplace_back(
               dyn_cast<OMPExecutableDirective>(It->S), VD);
-      }
-
-    } else if (It->Flags & A_OFFLD) {
-      // check access on target device
-      if (DataFirstPrivate && (It->Flags != (A_RDONLY  | A_OFFLD))) { // ReadOnly
-        // If not read-only then abandon attempt to classify as firstprivate.
         DataFirstPrivate = false;
         DataValidOnDevice = false;
       }
+
+    } else if (It->Flags & A_OFFLD) {
       if (!DataInitialized) {
         if (It->Flags & A_RDONLY) {
           // Read before write!
@@ -653,7 +659,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       } else if (!DataValidOnDevice && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
         // Data is already initalized, but not on target device
         if (PrevHostIt == AccessLog.end()
-         || PrevHostIt->Loc < TargetScope->BeginLoc) {
+         || SM.isBeforeInTranslationUnit(PrevHostIt->Loc,
+                                         TargetScope->BeginLoc)) {
           // PrevHostIt == AccessLog.end() indicates the first access of a
           // global or parameter on the target device.
           MapTo = true;
@@ -668,6 +675,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         // a single write on the target guarantees we need to at allocate space
         MapAlloc = true;
       }
+      // If not read-only then abandon attempt to classify as firstprivate.
+      DataFirstPrivate &= (It->Flags == (A_RDONLY  | A_OFFLD));
       UsedInLastKernel = true;
 
       // end check access on target device
@@ -675,7 +684,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       // check access on host
       if (!DataInitialized) {
         if (It->Loc == It->VD->getLocation()
-         && TargetScope->BeginLoc <= It->Loc) {
+         && !SM.isBeforeInTranslationUnit(It->Loc, TargetScope->BeginLoc)) {
           // Data needs to be declared before the target scope in which it is
           // used.
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
@@ -702,7 +711,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         }
       }
       else if (!DataValidOnHost && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
-        if (TargetScope->EndLoc < It->Loc) {
+        if (SM.isBeforeInTranslationUnit(TargetScope->EndLoc, It->Loc)) {
           MapFrom = true;
         } else if (!CondDependencyStack.empty()) {
           TargetScope->UpdateFrom.emplace_back(

@@ -11,6 +11,7 @@ using namespace clang;
 
 class Kernel {
 private:
+  ASTContext *Context; 
   const OMPExecutableDirective *TD;
   const FunctionDecl *FD;
 
@@ -30,7 +31,8 @@ private:
   friend class DataTracker; // will update this class directly
 
 public:
-  Kernel(const OMPExecutableDirective *TD, const FunctionDecl *FD);
+  Kernel(const OMPExecutableDirective *TD, const FunctionDecl *FD,
+         ASTContext *Context);
 
   const OMPExecutableDirective *getDirective() const;
   const FunctionDecl *getFunction() const;
