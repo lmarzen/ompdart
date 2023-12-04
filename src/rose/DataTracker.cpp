@@ -457,7 +457,7 @@ void DataTracker::classifyOffloadedOps() {
     for (; SM.isBeforeInTranslationUnit(It->Loc, Lower) 
            && It != AccessLog.end()
          ; ++It) {}
-    K->AccessLogBegin = It == AccessLog.end() ? AccessLog.end() : --It;
+    K->AccessLogBegin = It;
     for (; SM.isBeforeInTranslationUnit(It->Loc, Upper)
            && It != AccessLog.end()
          ; ++It) {}

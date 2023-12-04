@@ -34,6 +34,12 @@ const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
       return NULL;
 
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
+    if (!ParentStmt) {
+      const VarDecl *VD = ImmediateParents[0].get<VarDecl>();
+      const auto &VDParents = Context.getParents(*VD);
+      return VDParents[0].get<Stmt>();
+    }
+
     if (isa<CompoundStmt>(ParentStmt))
       return CurrentStmt;
 

@@ -32,6 +32,10 @@ SourceLocation Kernel::getEndLoc() const {
   SourceManager &SM = Context->getSourceManager();
   SourceLocation EndLoc = TD->getInnermostCapturedStmt()->getEndLoc();
   for (const OMPExecutableDirective *Captured : NestedDirectives) {
+    if (isa<OMPAtomicDirective>(Captured))
+      continue;
+    if (!Captured->hasAssociatedStmt()) // this include OMPBarrierDirective
+      continue;
     SourceLocation CapturedEndLoc =
         Captured->getInnermostCapturedStmt()->getEndLoc();
     if (SM.isBeforeInTranslationUnit(EndLoc, CapturedEndLoc))
