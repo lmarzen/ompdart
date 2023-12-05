@@ -179,11 +179,10 @@ bool RoseASTVisitor::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
   if (!ASE->getBeginLoc().isValid()
     || !SM->isInMainFile(ASE->getBeginLoc()))
     return true;
-
-  const ValueDecl *BasePointer = getLeftmostDecl(ASE)->getDecl();
-  if (!inLastFunction(BasePointer->getBeginLoc()))
+  if (!inLastFunction(ASE->getBeginLoc()))
     return true;
-
+  
+  const ValueDecl *BasePointer = getLeftmostDecl(ASE)->getDecl();
   LastFunction->recordArrayAccess(BasePointer, ASE);
   return true;
 }

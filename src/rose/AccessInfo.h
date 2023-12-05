@@ -26,11 +26,21 @@ enum ScopeBarrier : uint8_t {
 };
 
 struct ArrayAccess {
-  uint8_t Flags;        // Read/Write operations
-  size_t LitLower;      // Array access literal lower bound
-  size_t LitUpper;      // Array access literal upper bound
+  uint8_t Flags;             // Read/Write operations
+  size_t LitLower;           // Array access literal lower bound
+  size_t LitUpper;           // Array access literal upper bound
   const ValueDecl *VarLower; // Array access variable lower bound
   const ValueDecl *VarUpper; // Array access variable upper bound
+};
+
+struct LoopAccess {
+  size_t LitLower;            // Loop literal lower bound
+  size_t LitUpper;            // Loop literal upper bound
+  const Expr *ExprLower;      // Loop variable lower bound
+  const Expr *ExprUpper;      // Loop variable upper bound
+  const ValueDecl *IndexDecl; // Loop index variable
+  int8_t LowerOffByOne;       // Compensation for off by one comparisons.
+  int8_t UpperOffByOne;       // Compensation for off by one comparisons.
 };
 
 struct AccessInfo {
@@ -41,6 +51,7 @@ struct AccessInfo {
   ScopeBarrier Barrier; // Indicates begin/end of a block scope
   const ArraySubscriptExpr *ArraySubscript;
   std::vector<ArrayAccess> ArrayBounds;
+  const LoopAccess *LoopBounds;
 };
 
 #endif

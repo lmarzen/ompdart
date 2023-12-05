@@ -248,8 +248,16 @@ void DataTracker::printAccessLog() const {
       continue;
 
     llvm::outs() << Entry.VD->getNameAsString();
-    // llvm::outs() << " " << Entry.VD->getID();
+    llvm::outs() << " " << Entry.VD->getID();
     ExtraSpace =  WidthVD - Entry.VD->getNameAsString().size() + 1;
+
+    if (Entry.ArraySubscript) {
+      llvm::outs() << "  ";
+      Entry.ArraySubscript->getBase()->printPretty(llvm::outs(), NULL, Context->getLangOpts());
+      llvm::outs() << "[";
+      Entry.ArraySubscript->getIdx()->printPretty(llvm::outs(), NULL, Context->getLangOpts());
+      llvm::outs() << "]";
+    }
 
     llvm::outs() << std::string(ExtraSpace + 1, ' ');
     switch (Entry.Flags & (A_RDWR | A_UNKNOWN))
@@ -330,10 +338,6 @@ int DataTracker::recordCallExpr(const CallExpr *CE) {
 }
 
 int DataTracker::recordLoop(const Stmt *S) {
-  // Don't record loops inside a target region
-  if (LastKernel != nullptr && LastKernel->contains(S->getBeginLoc()))
-    return 0;
-
   Loops.push_back(S);
 
   AccessInfo NewEntry = {};
@@ -341,11 +345,170 @@ int DataTracker::recordLoop(const Stmt *S) {
   NewEntry.S       = S;
   NewEntry.Loc     = S->getBeginLoc();
   NewEntry.Flags   = A_NOP;
+  if (LastKernel != nullptr && LastKernel->contains(S->getBeginLoc()))
+    NewEntry.Flags |= A_OFFLD;
+
+
+  // Analyze loop bounds. This will be used for array bounds analysis.
+  if (isa<ForStmt>(S)) {
+    const ForStmt *FS = dyn_cast<ForStmt>(S);
+
+    const Stmt *Init = FS->getInit();
+    const Stmt *Cond = dyn_cast<Stmt>(FS->getCond());
+    const Stmt *Inc  = dyn_cast<Stmt>(FS->getInc());
+
+    LoopAccess *LA = new LoopAccess;
+    LA->LitLower  = SIZE_MAX;
+    LA->LitUpper  = SIZE_MAX;
+    LA->ExprLower = nullptr;
+    LA->ExprUpper = nullptr;
+    
+    size_t InitLitBound       = SIZE_MAX;
+    size_t CondLitBound       = SIZE_MAX;
+    const Expr *InitExprBound = nullptr;
+    const Expr *CondExprBound = nullptr;
+    
+
+    int IncType = 0;
+    // Determine indexing variable
+    if (Inc && isa<UnaryOperator>(Inc)) {
+      const UnaryOperator *UO = dyn_cast<UnaryOperator>(Inc);
+      if (UO->isIncrementDecrementOp()) {
+        const DeclRefExpr *DRE = getLeftmostDecl(UO);
+        LA->IndexDecl = DRE->getDecl();
+        IncType = UO->isIncrementOp() - UO->isDecrementOp();
+      } 
+    }
+
+    // Determine bound from Init
+    if (LA->IndexDecl && Init && isa<DeclStmt>(Init)) {
+      const DeclStmt *DS = dyn_cast<DeclStmt>(Init);
+      const Decl *D = DS->getSingleDecl();
+      if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
+        if (VD->getInit()->isEvaluatable(*Context)) {
+          Expr::EvalResult Result;
+          bool isConstant = VD->getInit()->EvaluateAsInt(Result, *Context);
+          if (isConstant)
+            InitLitBound = Result.Val.getInt().getExtValue();
+        }
+        if (InitLitBound == SIZE_MAX)
+          InitExprBound = VD->getInit();
+          
+      }
+    } else if (LA->IndexDecl && Init && isa<BinaryOperator>(Init)) {
+      const BinaryOperator *BO = dyn_cast<BinaryOperator>(Init);
+      if (BO->isAssignmentOp()) {
+        if (BO->getRHS()->isEvaluatable(*Context)) {
+          Expr::EvalResult Result;
+          bool isConstant = BO->getRHS()->EvaluateAsInt(Result, *Context);
+          if (isConstant)
+            InitLitBound = Result.Val.getInt().getExtValue();
+        }
+        if (InitLitBound == SIZE_MAX)
+          InitExprBound = BO->getRHS();
+      }
+    }
+
+    // Determine bound from Cond
+    if (LA->IndexDecl && Cond && isa<BinaryOperator>(Cond)) {
+      const BinaryOperator *BO = dyn_cast<BinaryOperator>(Cond);
+      if (BO->isComparisonOp()) {
+        const Stmt *LHS = dyn_cast<Stmt>(BO->getLHS());
+        const Stmt *RHS = dyn_cast<Stmt>(BO->getRHS());
+
+        const DeclRefExpr *DRE = getLeftmostDecl(LHS);
+        if (DRE && DRE->getDecl() == LA->IndexDecl) {
+          // Index variable on LHS
+          if (BO->getRHS()->isEvaluatable(*Context)) {
+            Expr::EvalResult Result;
+            bool isConstant = BO->getRHS()->EvaluateAsInt(Result, *Context);
+            if (isConstant)
+              CondLitBound = Result.Val.getInt().getExtValue();
+          }
+          if (CondLitBound == SIZE_MAX)
+            CondExprBound = BO->getRHS();
+
+        } else {
+          DRE = getLeftmostDecl(RHS);
+          if (DRE && DRE->getDecl() == LA->IndexDecl) {
+            // Index variable on RHS
+            if (BO->getLHS()->isEvaluatable(*Context)) {
+              Expr::EvalResult Result;
+              bool isConstant = BO->getLHS()->EvaluateAsInt(Result, *Context);
+              if (isConstant)
+                CondLitBound = Result.Val.getInt().getExtValue();
+            }
+            if (CondLitBound == SIZE_MAX)
+              CondExprBound = BO->getLHS();
+          }
+        }
+
+        // Determine comparison type for off by one compensation.
+        if (IncType == 1) {
+          LA->LowerOffByOne = 0;
+          switch (BO->getOpcode()) {
+          case BinaryOperator::Opcode::BO_LT:
+          case BinaryOperator::Opcode::BO_GT:
+          case BinaryOperator::Opcode::BO_NE:
+            LA->UpperOffByOne = 0;
+            break;
+          case BinaryOperator::Opcode::BO_LE:
+          case BinaryOperator::Opcode::BO_GE:
+            LA->UpperOffByOne = 1;
+            break;
+          case BinaryOperator::Opcode::BO_EQ:
+          default:
+            break;
+          }
+        } else if (IncType == -1) {
+          LA->UpperOffByOne = 1;
+          switch (BO->getOpcode()) {
+          case BinaryOperator::Opcode::BO_LT:
+          case BinaryOperator::Opcode::BO_GT:
+          case BinaryOperator::Opcode::BO_NE:
+            LA->LowerOffByOne = 1;
+            break;
+          case BinaryOperator::Opcode::BO_LE:
+          case BinaryOperator::Opcode::BO_GE:
+            LA->LowerOffByOne = 0;
+            break;
+          case BinaryOperator::Opcode::BO_EQ:
+          default:
+            break;
+          }
+        }
+      }
+    }
+
+    if (IncType == 1) {
+      LA->LitLower  = InitLitBound;
+      LA->LitUpper  = CondLitBound;
+      LA->ExprLower = InitExprBound;
+      LA->ExprUpper = CondExprBound;
+    } else if (IncType == -1) {
+      LA->LitLower  = CondLitBound;
+      LA->LitUpper  = InitLitBound;
+      LA->ExprLower = CondExprBound;
+      LA->ExprUpper = InitExprBound;
+    }
+    
+    llvm::outs() << LA->LitLower << " " << LA->LitUpper << "\n";
+    if ((LA->LitLower != SIZE_MAX || LA->ExprLower)
+     || (LA->LitUpper != SIZE_MAX || LA->ExprUpper)) {
+      llvm::outs() << "Committing loop bounds\n";
+      NewEntry.LoopBounds = LA;
+    } else {
+      delete LA;
+    }
+
+  }
+
   NewEntry.Barrier = ScopeBarrier::LoopBegin;
   insertAccessLogEntry(NewEntry);
   NewEntry.Loc     = S->getEndLoc();
   NewEntry.Barrier = ScopeBarrier::LoopEnd;
   insertAccessLogEntry(NewEntry);
+
   return 1;
 }
 
@@ -541,7 +704,7 @@ struct DataFlowOf {
   DataFlowOf(const ValueDecl *VD) : VD(VD) {}
   bool operator()(const AccessInfo &Entry) {
     // Consider an entry in the access log to be in the flow of VD if the entry
-    // contains info for VD or is a the beginning or end of a loop or kernel.
+    // contains control flow or is an access of VD.
     return Entry.Barrier || (Entry.VD == VD);
   }
 };
@@ -560,7 +723,10 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   std::stack<CondDependency> CondDependencyStack;
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
-  bool MapAlloc = !IsArithmeticType;
+  bool isPointerType = VD->getType()->isAnyPointerType();
+  bool MapAlloc = !IsArithmeticType;  // arithmetic types can be transferred via
+                                      // kernel parameters. all others should be
+                                      // mapped. we may promote alloc to to/from
   bool IsGlobal = Globals.contains(VD);
   bool IsParam = false;
   bool IsParamPtrToNonConst = false;
@@ -581,34 +747,56 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     DataValidOnHost = true;
   }
 
+  llvm::outs() << "Beginning Analysis of " << VD->getNameAsString() << "\n";
+
   auto PrevHostIt = AccessLog.end();
   std::vector<AccessInfo>::iterator It;
   // Advance It to next access entry of VD or loop marker
   It = std::find_if(AccessLog.begin(), AccessLog.end(), DataFlowOf(VD));
   while (It != AccessLog.end()) {
+    if (It->ArraySubscript) {
+      if (It->ArraySubscript->getIdx()->isEvaluatable(*Context)) {
+      llvm::outs() << "  isEvaluatable: " << "yes" << "\n";
+      } else {
+      llvm::outs() << "  isEvaluatable: " << "no" << "\n";
+      }
+      if (It->ArraySubscript->getIdx()->isEvaluatable(*Context)) {
+        // It's a constant value; you can try to evaluate it.
+        Expr::EvalResult Result;
+        bool isConstant = It->ArraySubscript->getIdx()->EvaluateAsInt(Result, *Context);
+        if (isConstant) {
+            llvm::outs() << "  Expression is a constant value: " << Result.Val.getInt().getExtValue() << "\n";
+        }
+      }
+    }
+    
     if (It->Barrier == ScopeBarrier::LoopBegin) {
-      LoopDependency LD;
-      LD.DataValidOnHost   = DataValidOnHost;
-      LD.DataValidOnDevice = DataValidOnDevice;
-      LD.MapTo             = MapTo;
-      LD.FirstHostAccess   = nullptr;
-      LoopDependencyStack.emplace(LD);
+      if (!(It->Flags & A_OFFLD)) {
+        LoopDependency LD;
+        LD.DataValidOnHost   = DataValidOnHost;
+        LD.DataValidOnDevice = DataValidOnDevice;
+        LD.MapTo             = MapTo;
+        LD.FirstHostAccess   = nullptr;
+        LoopDependencyStack.emplace(LD);
+      }
     } else if (It->Barrier == ScopeBarrier::LoopEnd) {
-      LoopDependency LD = LoopDependencyStack.top();
-      if (LD.DataValidOnHost && !DataValidOnHost && LD.FirstHostAccess) {
-        AccessInfo FirstAccess = *(LD.FirstHostAccess); // copy
-        // Indicates to the rewriter that this statement is to be placed
-        // directive directly before the loop end.
-        FirstAccess.Barrier = ScopeBarrier::LoopEnd; 
-        TargetScope->UpdateFrom.emplace_back(FirstAccess);
-        DataValidOnHost = true;
+      if (!(It->Flags & A_OFFLD)) {
+        LoopDependency LD = LoopDependencyStack.top();
+        if (LD.DataValidOnHost && !DataValidOnHost && LD.FirstHostAccess) {
+          AccessInfo FirstAccess = *(LD.FirstHostAccess); // copy
+          // Indicates to the rewriter that this statement is to be placed
+          // directive directly before the loop end.
+          FirstAccess.Barrier = ScopeBarrier::LoopEnd; 
+          TargetScope->UpdateFrom.emplace_back(FirstAccess);
+          DataValidOnHost = true;
+        }
+        if ((LD.DataValidOnDevice && !DataValidOnDevice && LD.FirstHostAccess)
+        || (!LD.MapTo && MapTo && !DataValidOnDevice)) {
+          TargetScope->UpdateTo.emplace_back(*PrevHostIt);
+          MapTo = LD.MapTo; // restore MapTo to before loop
+        }
+        LoopDependencyStack.pop();
       }
-      if ((LD.DataValidOnDevice && !DataValidOnDevice && LD.FirstHostAccess)
-       || (!LD.MapTo && MapTo && !DataValidOnDevice)) {
-        TargetScope->UpdateTo.emplace_back(*PrevHostIt);
-        MapTo = LD.MapTo; // restore MapTo to before loop
-      }
-      LoopDependencyStack.pop();
 
     } else if (It->Barrier == ScopeBarrier::CondBegin) {
       CondDependency CD;
@@ -743,14 +931,16 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     DataValidOnHost = true;
   }
 
+  AccessInfo Access;
+  Access.VD = VD;
   if (MapTo && MapFrom)
-    TargetScope->MapToFrom.push_back(VD);
+    TargetScope->MapToFrom.push_back(Access);
   else if (MapTo)
-    TargetScope->MapTo.push_back(VD);
+    TargetScope->MapTo.push_back(Access);
   else if (MapFrom)
-    TargetScope->MapFrom.push_back(VD);
+    TargetScope->MapFrom.push_back(Access);
   else if (MapAlloc)
-    TargetScope->MapAlloc.push_back(VD);
+    TargetScope->MapAlloc.push_back(Access);
 
   return;
 }
@@ -784,25 +974,13 @@ void DataTracker::analyze() {
   // Map a list of all the data the TargetScope will be responsible for.
   boost::container::flat_set<const ValueDecl *> TargetScopeDecls;
   for (auto It = AccessLog.begin(); It != AccessLog.end(); ++It) {
-    if (It->Flags & A_OFFLD)
+    if (It->Flags & A_OFFLD && It->Barrier == ScopeBarrier::None)
       TargetScopeDecls.insert(It->VD);
   }
 
   for (const ValueDecl *VD : TargetScopeDecls) {
     analyzeValueDecl(VD);
   }
-
-  return;
-}
-
-
-void analyzeValueDeclArrayBounds(const ValueDecl *VD) {
-
-  return;
-}
-
-void DataTracker::analyzeArrayBounds() {
-
 
   return;
 }

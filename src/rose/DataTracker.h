@@ -78,7 +78,6 @@ public:
   void classifyOffloadedOps();
   void naiveAnalyze();
   void analyze();
-  void analyzeArrayBounds();
   std::vector<uint8_t> getParamAccessModes() const;
   std::vector<uint8_t> getGlobalAccessModes() const;
 };

@@ -27,42 +27,42 @@ void TargetDataRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) con
   llvm::outs() << "\n|-- Data";
   if (MapTo.size())
     llvm::outs() << "\n|   |-- to";
-  for (const ValueDecl *VD : MapTo) {
-    llvm::outs() << "\n|   |   |-- " << VD->getNameAsString() << " loc: ";
-    VD->getLocation().print(llvm::outs(), SM);
-    llvm::outs() << " " << VD->getID();
+  for (const AccessInfo &Access : MapTo) {
+    llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
+    Access.VD->getLocation().print(llvm::outs(), SM);
+    llvm::outs() << " " << Access.VD->getID();
   }
   if (MapFrom.size())
     llvm::outs() << "\n|   |-- from";
-  for (const ValueDecl *VD : MapFrom) {
-    llvm::outs() << "\n|   |   |-- " << VD->getNameAsString() << " loc: ";
-    VD->getLocation().print(llvm::outs(), SM);
-    llvm::outs() << " " << VD->getID();
+  for (const AccessInfo &Access : MapFrom) {
+    llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
+    Access.VD->getLocation().print(llvm::outs(), SM);
+    llvm::outs() << " " << Access.VD->getID();
   }
   if (MapToFrom.size())
     llvm::outs() << "\n|   |-- tofrom";
-  for (const ValueDecl *VD : MapToFrom) {
-    llvm::outs() << "\n|   |   |-- " << VD->getNameAsString() << " loc: ";
-    VD->getLocation().print(llvm::outs(), SM);
-    llvm::outs() << " " << VD->getID();
+  for (const AccessInfo &Access : MapToFrom) {
+    llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
+    Access.VD->getLocation().print(llvm::outs(), SM);
+    llvm::outs() << " " << Access.VD->getID();
   }
   if (MapAlloc.size())
     llvm::outs() << "\n|   |-- alloc";
-  for (const ValueDecl *VD : MapAlloc) {
-    llvm::outs() << "\n|   |   |-- " << VD->getNameAsString() << " loc: ";
-    VD->getLocation().print(llvm::outs(), SM);
-    llvm::outs() << " " << VD->getID();
+  for (const AccessInfo &Access : MapAlloc) {
+    llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
+    Access.VD->getLocation().print(llvm::outs(), SM);
+    llvm::outs() << " " << Access.VD->getID();
   }
   if (UpdateFrom.size())
     llvm::outs() << "\n|   |-- updatefrom";
-  for (AccessInfo Access : UpdateFrom) {
+  for (const AccessInfo &Access : UpdateFrom) {
     llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
     Access.Loc.print(llvm::outs(), SM);
     llvm::outs() << " id: " << Access.VD->getID();
   }
   if (UpdateTo.size())
     llvm::outs() << "\n|   |-- updateto";
-  for (AccessInfo Access : UpdateTo) {
+  for (const AccessInfo &Access : UpdateTo) {
     llvm::outs() << "\n|   |   |-- " << Access.VD->getNameAsString() << " loc: ";
     Access.Loc.print(llvm::outs(), SM);
     llvm::outs() << " id: " << Access.VD->getID();
@@ -72,19 +72,19 @@ void TargetDataRegion::print(llvm::raw_ostream &OS, const SourceManager &SM) con
   return;
 }
 
-const std::vector<const ValueDecl *> &TargetDataRegion::getMapTo() const {
+const std::vector<AccessInfo> &TargetDataRegion::getMapTo() const {
   return MapTo;
 }
 
-const std::vector<const ValueDecl *> &TargetDataRegion::getMapFrom() const {
+const std::vector<AccessInfo> &TargetDataRegion::getMapFrom() const {
   return MapFrom;
 }
 
-const std::vector<const ValueDecl *> &TargetDataRegion::getMapToFrom() const {
+const std::vector<AccessInfo> &TargetDataRegion::getMapToFrom() const {
   return MapToFrom;
 }
 
-const std::vector<const ValueDecl *> &TargetDataRegion::getMapAlloc() const {
+const std::vector<AccessInfo> &TargetDataRegion::getMapAlloc() const {
   return MapAlloc;
 }
 

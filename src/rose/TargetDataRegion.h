@@ -14,10 +14,10 @@ private:
   SourceLocation EndLoc;
   const FunctionDecl *FD;
 
-  std::vector<const ValueDecl *> MapTo;
-  std::vector<const ValueDecl *> MapFrom;
-  std::vector<const ValueDecl *> MapToFrom;
-  std::vector<const ValueDecl *> MapAlloc;
+  std::vector<AccessInfo> MapTo;
+  std::vector<AccessInfo> MapFrom;
+  std::vector<AccessInfo> MapToFrom;
+  std::vector<AccessInfo> MapAlloc;
   std::vector<AccessInfo> UpdateTo;
   std::vector<AccessInfo> UpdateFrom;
   std::vector<ClauseInfo> Private;
@@ -35,10 +35,10 @@ public:
   const FunctionDecl *getContainingFunction() const;
   void print(llvm::raw_ostream &OS, const SourceManager &SM) const;
 
-  const std::vector<const ValueDecl *> &getMapTo() const;
-  const std::vector<const ValueDecl *> &getMapFrom() const;
-  const std::vector<const ValueDecl *> &getMapToFrom() const;
-  const std::vector<const ValueDecl *> &getMapAlloc() const;
+  const std::vector<AccessInfo> &getMapTo() const;
+  const std::vector<AccessInfo> &getMapFrom() const;
+  const std::vector<AccessInfo> &getMapToFrom() const;
+  const std::vector<AccessInfo> &getMapAlloc() const;
   const std::vector<AccessInfo> &getUpdateTo() const;
   const std::vector<AccessInfo> &getUpdateFrom() const;
   const std::vector<ClauseInfo> &getPrivate() const;

@@ -164,29 +164,29 @@ void rewriteDataMap(Rewriter &R,
 
   if (!Data->getMapAlloc().empty()) {
     MapDirective += " map(alloc:";
-    for (const ValueDecl *VD : Data->getMapAlloc()) {
-      MapDirective += VD->getNameAsString() + ",";
+    for (const AccessInfo &Access : Data->getMapAlloc()) {
+      MapDirective += Access.VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapTo().empty()) {
     MapDirective += " map(to:";
-    for (const ValueDecl *VD : Data->getMapTo()) {
-      MapDirective += VD->getNameAsString() + ",";
+    for (const AccessInfo &Access : Data->getMapTo()) {
+      MapDirective += Access.VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapFrom().empty()) {
     MapDirective += " map(from:";
-    for (const ValueDecl *VD : Data->getMapFrom()) {
-      MapDirective += VD->getNameAsString() + ",";
+    for (const AccessInfo &Access : Data->getMapFrom()) {
+      MapDirective += Access.VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
   if (!Data->getMapToFrom().empty()) {
     MapDirective += " map(tofrom:";
-    for (const ValueDecl *VD : Data->getMapToFrom()) {
-      MapDirective += VD->getNameAsString() + ",";
+    for (const AccessInfo &Access : Data->getMapToFrom()) {
+      MapDirective += Access.VD->getNameAsString() + ",";
     }
     MapDirective.back() = ')';
   }
