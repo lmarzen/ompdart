@@ -721,6 +721,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   bool PrevMapTo = false;
   std::stack<LoopDependency> LoopDependencyStack;
   std::stack<CondDependency> CondDependencyStack;
+  std::vector<ArrayAccess> ArrayBoundsList;
+  std::stack<const LoopAccess *> LoopBoundsStack; 
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool isPointerType = VD->getType()->isAnyPointerType();
@@ -754,20 +756,31 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   // Advance It to next access entry of VD or loop marker
   It = std::find_if(AccessLog.begin(), AccessLog.end(), DataFlowOf(VD));
   while (It != AccessLog.end()) {
+    // Array Access Determination
     if (It->ArraySubscript) {
-      if (It->ArraySubscript->getIdx()->isEvaluatable(*Context)) {
-      llvm::outs() << "  isEvaluatable: " << "yes" << "\n";
-      } else {
-      llvm::outs() << "  isEvaluatable: " << "no" << "\n";
-      }
-      if (It->ArraySubscript->getIdx()->isEvaluatable(*Context)) {
-        // It's a constant value; you can try to evaluate it.
+      ArrayAccess Bounds;
+      Bounds.Flags = It->Flags; 
+      Bounds.LitLower = SIZE_MAX;
+      Bounds.LitUpper = SIZE_MAX;   
+      llvm::outs() << "Found var ArraySubscript\n";
+      const Expr *Idx = It->ArraySubscript->getIdx();
+      const ImplicitCastExpr *IdxICE = dyn_cast<ImplicitCastExpr>(Idx);
+      const DeclRefExpr *IdxDRE = IdxICE ? 
+          dyn_cast<DeclRefExpr>(*(IdxICE->child_begin())) : nullptr;
+
+      if (IdxDRE) {
+        Bounds.VarLower = IdxDRE->getDecl();
+        Bounds.VarUpper = Bounds.VarLower;
+        llvm::outs() << "Found var: " << Bounds.VarLower->getNameAsString() << "\n";
+      } else if (Idx->isEvaluatable(*Context)) {
         Expr::EvalResult Result;
-        bool isConstant = It->ArraySubscript->getIdx()->EvaluateAsInt(Result, *Context);
+        bool isConstant = Idx->EvaluateAsInt(Result, *Context);
         if (isConstant) {
-            llvm::outs() << "  Expression is a constant value: " << Result.Val.getInt().getExtValue() << "\n";
+          Bounds.LitLower = Result.Val.getInt().getExtValue();
+          Bounds.LitUpper = Bounds.LitLower;
         }
       }
+      ArrayBoundsList.emplace_back(Bounds);
     }
     
     if (It->Barrier == ScopeBarrier::LoopBegin) {
@@ -779,6 +792,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         LD.FirstHostAccess   = nullptr;
         LoopDependencyStack.emplace(LD);
       }
+      LoopBoundsStack.push(It->LoopBounds);
     } else if (It->Barrier == ScopeBarrier::LoopEnd) {
       if (!(It->Flags & A_OFFLD)) {
         LoopDependency LD = LoopDependencyStack.top();
@@ -797,6 +811,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         }
         LoopDependencyStack.pop();
       }
+      LoopBoundsStack.pop();
 
     } else if (It->Barrier == ScopeBarrier::CondBegin) {
       CondDependency CD;
