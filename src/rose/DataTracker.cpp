@@ -1,6 +1,7 @@
 #include "DataTracker.h"
 
 #include "clang/AST/ParentMapContext.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
 
 #include "CommonUtils.h"
@@ -709,6 +710,26 @@ struct DataFlowOf {
   }
 };
 
+class VariableFinder : public RecursiveASTVisitor<VariableFinder> {
+public:
+    // explicit VariableFinder(ASTContext *Context) : Context(Context) {}
+
+    bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+        if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+            ReferencedVariables.insert(VD);
+        }
+        return true;
+    }
+
+    boost::container::flat_set<const VarDecl *> getReferencedVariables() const {
+        return ReferencedVariables;
+    }
+
+private:
+    // ASTContext *Context;
+    boost::container::flat_set<const VarDecl *> ReferencedVariables;
+};
+
 void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   SourceManager &SM = Context->getSourceManager();
   bool MapTo = false;
@@ -722,7 +743,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   std::stack<LoopDependency> LoopDependencyStack;
   std::stack<CondDependency> CondDependencyStack;
   std::vector<ArrayAccess> ArrayBoundsList;
-  std::stack<const LoopAccess *> LoopBoundsStack; 
+  std::vector<const AccessInfo *> LoopStack; 
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool isPointerType = VD->getType()->isAnyPointerType();
@@ -752,6 +773,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   llvm::outs() << "Beginning Analysis of " << VD->getNameAsString() << "\n";
 
   auto PrevHostIt = AccessLog.end();
+  auto PrevTgtIt = AccessLog.end();
   std::vector<AccessInfo>::iterator It;
   // Advance It to next access entry of VD or loop marker
   It = std::find_if(AccessLog.begin(), AccessLog.end(), DataFlowOf(VD));
@@ -762,8 +784,10 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       Bounds.Flags = It->Flags; 
       Bounds.LitLower = SIZE_MAX;
       Bounds.LitUpper = SIZE_MAX;   
-      llvm::outs() << "Found var ArraySubscript\n";
       const Expr *Idx = It->ArraySubscript->getIdx();
+      llvm::outs() << "Found var ArraySubscript ";
+      Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
+      llvm::outs() << "\n";
       const ImplicitCastExpr *IdxICE = dyn_cast<ImplicitCastExpr>(Idx);
       const DeclRefExpr *IdxDRE = IdxICE ? 
           dyn_cast<DeclRefExpr>(*(IdxICE->child_begin())) : nullptr;
@@ -792,7 +816,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         LD.FirstHostAccess   = nullptr;
         LoopDependencyStack.emplace(LD);
       }
-      LoopBoundsStack.push(It->LoopBounds);
+      LoopStack.push_back(&(*It));
     } else if (It->Barrier == ScopeBarrier::LoopEnd) {
       if (!(It->Flags & A_OFFLD)) {
         LoopDependency LD = LoopDependencyStack.top();
@@ -811,7 +835,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         }
         LoopDependencyStack.pop();
       }
-      LoopBoundsStack.pop();
+      LoopStack.pop_back();
 
     } else if (It->Barrier == ScopeBarrier::CondBegin) {
       CondDependency CD;
@@ -844,6 +868,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         DataFirstPrivate = false;
         DataValidOnDevice = false;
       }
+      PrevTgtIt = It;
 
     } else if (It->Flags & A_OFFLD) {
       if (!DataInitialized) {
@@ -916,6 +941,56 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       else if (!DataValidOnHost && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
         if (SM.isBeforeInTranslationUnit(TargetScope->EndLoc, It->Loc)) {
           MapFrom = true;
+        } else if (It->ArraySubscript) {
+          const Expr *Idx = It->ArraySubscript->getIdx();
+          llvm::outs() << "Found var ArraySubscript ";
+          Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
+          llvm::outs() << "\n";
+          VariableFinder Finder;
+          Finder.TraverseStmt(const_cast<Expr *>(Idx));
+          boost::container::flat_set<const VarDecl *> IndexingVars = Finder.getReferencedVariables();
+          llvm::outs() << "INDEXING VARS:";
+          for (const VarDecl *IndexingVar : IndexingVars) {
+            llvm::outs() << " " << IndexingVar->getNameAsString() << ":" << IndexingVar->getID();
+          }
+          llvm::outs() << "\n";
+
+          const AccessInfo *OutermostIndexingLoop = nullptr;
+          for (auto Rit = LoopStack.rbegin();
+               Rit != LoopStack.rend();
+               ++Rit) {
+            if (PrevTgtIt != AccessLog.end() && SM.isBeforeInTranslationUnit((*Rit)->Loc, PrevTgtIt->Loc))
+              break;
+            const ValueDecl *IndexValueDecl = (*Rit)->LoopBounds->IndexDecl;
+            if (!IndexValueDecl)
+              continue;
+            const VarDecl *IndexVarDecl = dyn_cast<const VarDecl>(IndexValueDecl);
+            if (!IndexVarDecl)
+              continue;
+          
+            llvm::outs() << "INDEXDECL:";
+            llvm::outs() << " " << IndexVarDecl->getNameAsString() << ":" << IndexVarDecl->getID() << "\n";
+            if (!IndexingVars.contains(IndexVarDecl))
+              continue;
+            OutermostIndexingLoop = (*Rit);
+            llvm::outs() << "OutermostIndexingLoop:";
+            llvm::outs() << " " << OutermostIndexingLoop->Loc.printToString(SM) << "\n";
+          }
+        
+          if (OutermostIndexingLoop) {
+            AccessInfo OutermostIndexingLoopCopy = *OutermostIndexingLoop; // copy
+            OutermostIndexingLoopCopy.VD = It->VD;
+            TargetScope->UpdateFrom.emplace_back(OutermostIndexingLoopCopy);
+          } else {
+            // does not depend on loop index.
+            if (!CondDependencyStack.empty()) {
+            TargetScope->UpdateFrom.emplace_back(
+                CondDependencyStack.top().Conditional);
+            } else {
+              TargetScope->UpdateFrom.emplace_back(*It);
+            }
+          }
+          
         } else if (!CondDependencyStack.empty()) {
           TargetScope->UpdateFrom.emplace_back(
               CondDependencyStack.top().Conditional);
