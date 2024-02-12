@@ -41,7 +41,7 @@ bool isMemDealloc(const FunctionDecl *Callee) {
  * Returns nullptr if not found.
  */
 const DeclRefExpr *getLeftmostDecl(const Stmt *S) {
-  while (S) {
+  while (S && S->child_begin() != S->child_end()) {
     S = *(S->child_begin());
     const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(S);
     if (DRE)
