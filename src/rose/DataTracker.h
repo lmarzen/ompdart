@@ -24,6 +24,7 @@ private:
   std::vector<const CallExpr *> CallExprs;
   boost::container::flat_set<const ValueDecl *> Locals;
   boost::container::flat_set<const ValueDecl *> Globals;
+  boost::container::flat_set<int64_t> Disabled;
 
   const ValueDecl *LastArrayBasePointer;
   const ArraySubscriptExpr *LastArraySubscript;
@@ -78,8 +79,8 @@ public:
   void classifyOffloadedOps();
   void naiveAnalyze();
   void analyze();
-  std::vector<uint8_t> getParamAccessModes(bool crossFnOffloading) const;
-  std::vector<uint8_t> getGlobalAccessModes(bool crossFnOffloading) const;
+  std::vector<uint8_t> getParamAccessModes(bool crossFnOffloading);
+  std::vector<uint8_t> getGlobalAccessModes(bool crossFnOffloading);
 };
 
 #endif

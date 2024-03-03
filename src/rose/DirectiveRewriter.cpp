@@ -31,7 +31,7 @@ const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
   while (true) {
     const auto &ImmediateParents = Context.getParents(*CurrentStmt);
     if (ImmediateParents.size() == 0)
-      return NULL;
+      return nullptr;
 
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
     if (!ParentStmt) {

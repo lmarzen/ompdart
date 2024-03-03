@@ -651,6 +651,9 @@ const Stmt *DataTracker::findOutermostCapturingStmt(const Stmt *ContainingStmt,
       return nullptr;
 
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
+    if (!ParentStmt) {
+      return nullptr;
+    }
     if (ParentStmt == ContainingStmt)
       return CurrentStmt;
 
@@ -751,8 +754,9 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool isPointerType = VD->getType()->isAnyPointerType();
   bool MapAlloc = !IsArithmeticType;  // arithmetic types can be transferred via
-                                      // kernel parameters. all others should be
-                                      // mapped. we may promote alloc to to/from
+                                      // kernel parameters (firstprivate). all
+                                      // others should be mapped. we may promote
+                                      // alloc to to/from
   bool IsGlobal = Globals.contains(VD);
   bool IsParam = false;
   bool IsParamPtrToNonConst = false;
@@ -1039,23 +1043,73 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
 }
 
 void DataTracker::analyze() {
-  if (Kernels.size() == 0) {
+  AccessInfo *firstOffload = nullptr;
+  AccessInfo *lastOffload = nullptr;
+  for (AccessInfo &Access : AccessLog) {
+    if (Access.Flags & A_OFFLD) {
+      if (!firstOffload) {
+        firstOffload = &Access;
+        lastOffload  = &Access;
+      } else {
+        lastOffload  = &Access;
+      }
+    }
+  }
+  if (!firstOffload) {
     // There is nothing to analyze.
     return;
   }
 
   classifyOffloadedOps();
 
-  // Identify the root(outermost) target scope in the function.
-  const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
-  SourceLocation ScopeBegin = FrontCapturingStmt->getBeginLoc();
-  const Stmt *BackCapturingStmt  = findOutermostCapturingStmt(FD->getBody(), Kernels.back()->getDirective());
-  SourceLocation ScopeEnd = BackCapturingStmt->getEndLoc();
-  if (auto OpenMPDirective = dyn_cast<OMPExecutableDirective>(BackCapturingStmt)) {
-    // ugh. The getEndLoc() of OpenMP directives is different and doesn't
-    // consider the captured statement while seemingly every other statement
-    // does.
-    ScopeEnd = OpenMPDirective->getInnermostCapturedStmt()->getEndLoc();
+  const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), firstOffload->S);
+  const Stmt *BackCapturingStmt = findOutermostCapturingStmt(FD->getBody(), lastOffload->S);
+  SourceLocation ScopeBegin;
+  SourceLocation ScopeEnd;
+  if (FrontCapturingStmt) {
+    ScopeBegin = FrontCapturingStmt->getBeginLoc();
+    llvm::outs() << "FrontCapturingStmt is "
+                 << ScopeBegin.printToString(Context->getSourceManager())
+                 << " in " << FD->getNameAsString() << "\n";
+  } else {
+    llvm::outs() << "FrontCapturingStmt null in "
+                 << FD->getNameAsString() << "\n";
+  }
+  if (BackCapturingStmt) {
+    ScopeEnd = BackCapturingStmt->getEndLoc();
+    llvm::outs() << "BackCapturingStmt is "
+                 << ScopeEnd.printToString(Context->getSourceManager())
+                 << " in " << FD->getNameAsString() << "\n";
+  } else {
+    llvm::outs() << "BackCapturingStmt null in "
+                 << FD->getNameAsString() << "\n";
+  }
+
+  if (Kernels.size() > 0) {
+    // Identify the root(outermost) target scope in the function.
+    FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
+    SourceLocation KernelScopeBegin = FrontCapturingStmt->getBeginLoc();
+    BackCapturingStmt  = findOutermostCapturingStmt(FD->getBody(), Kernels.back()->getDirective());
+    SourceLocation KernelScopeEnd = BackCapturingStmt->getEndLoc();
+    if (auto OpenMPDirective = dyn_cast<OMPExecutableDirective>(BackCapturingStmt)) {
+      // ugh. The getEndLoc() of OpenMP directives is different and doesn't
+      // consider the captured statement while seemingly every other statement
+      // does.
+      KernelScopeEnd = OpenMPDirective->getInnermostCapturedStmt()->getEndLoc();
+    }
+    SourceManager &SM = Context->getSourceManager();
+    if (ScopeBegin.isInvalid() || SM.isBeforeInTranslationUnit(KernelScopeBegin, ScopeBegin)) {
+      ScopeBegin = KernelScopeBegin;
+    }
+    if (ScopeEnd.isInvalid() ||SM.isBeforeInTranslationUnit(ScopeEnd, KernelScopeEnd)) {
+      ScopeEnd = KernelScopeEnd;
+    }
+  }
+
+  if (ScopeBegin.isInvalid() || ScopeEnd.isInvalid()) {
+    llvm::outs() << "error: Data mapping scope could not be determined for function "
+                 << FD->getNameAsString() << "\n";
+    return;
   }
 
   TargetScope = new TargetDataRegion(ScopeBegin, ScopeEnd, FD);
@@ -1072,13 +1126,14 @@ void DataTracker::analyze() {
   }
 
   for (const ValueDecl *VD : TargetScopeDecls) {
-    analyzeValueDecl(VD);
+    if (!Disabled.contains(VD->getID()))
+      analyzeValueDecl(VD);
   }
 
   return;
 }
 
-std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) const {
+std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) {
   std::vector<uint8_t> results;
   std::vector<ParmVarDecl *> Params = FD->parameters();
   if (Params.size() == 0)
@@ -1103,6 +1158,11 @@ std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) co
     if (!crossFnOffloading || !OffldOnly) {
       // clear offloaded flag
       Flags |= ~A_OFFLD;
+    } else {
+      // data for this variable will be managed by caller.
+      // this is an aggressive assumption since this function may be called by
+      // another translation unit, so doing this could be unsafe.
+      Disabled.insert(Params[I]->getID());
     }
 
     results.push_back(Flags);
@@ -1110,7 +1170,7 @@ std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) co
   return results;
 }
 
-std::vector<uint8_t> DataTracker::getGlobalAccessModes(bool crossFnOffloading) const {
+std::vector<uint8_t> DataTracker::getGlobalAccessModes(bool crossFnOffloading) {
   std::vector<uint8_t> results;
   if (Globals.size() == 0)
     return results;
@@ -1127,6 +1187,11 @@ std::vector<uint8_t> DataTracker::getGlobalAccessModes(bool crossFnOffloading) c
     if (!crossFnOffloading || !OffldOnly) {
       // clear offloaded flag
       Flags |= ~A_OFFLD;
+    } else {
+      // data for this variable will be managed by caller.
+      // this is an aggressive assumption since this function may be called by
+      // another translation unit, so doing this could be unsafe.
+      Disabled.insert(Global->getID());
     }
     results.push_back(Flags);
   }
