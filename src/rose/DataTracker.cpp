@@ -1157,7 +1157,7 @@ std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) {
     }
     if (!crossFnOffloading || !OffldOnly) {
       // clear offloaded flag
-      Flags |= ~A_OFFLD;
+      Flags &= ~A_OFFLD;
     } else {
       // data for this variable will be managed by caller.
       // this is an aggressive assumption since this function may be called by
@@ -1186,7 +1186,7 @@ std::vector<uint8_t> DataTracker::getGlobalAccessModes(bool crossFnOffloading) {
     }
     if (!crossFnOffloading || !OffldOnly) {
       // clear offloaded flag
-      Flags |= ~A_OFFLD;
+      Flags &= ~A_OFFLD;
     } else {
       // data for this variable will be managed by caller.
       // this is an aggressive assumption since this function may be called by
