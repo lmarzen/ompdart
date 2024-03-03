@@ -168,9 +168,9 @@ int DataTracker::updateParamsTouchedByCallee(const FunctionDecl *Callee,
       QualType ParamType = Callee->getParamDecl(I)->getType();
       if (!ParamType->isPointerType() && !ParamType->isReferenceType())
         continue;
-      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreImpCasts());
+      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Args[I]->IgnoreCasts());
       if (!DRE) {
-        // is a literal
+        // is a literal or expression
         continue;
       }
       const ValueDecl *VD = DRE->getDecl();
@@ -215,13 +215,16 @@ int DataTracker::updateTouchedByCallee(const FunctionDecl *Callee,
                                        const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                                        const std::vector<uint8_t> &GlobalModes) {
   int numUpdates = 0;
-
   // Start by finding all the calls to the callee.
   std::vector<const CallExpr *> Calls;
   for (const CallExpr *CE : CallExprs) {
-    if (CE->getDirectCallee()->getDefinition() == Callee)
+    if (CE->getDirectCallee()->getDefinition() == Callee) {
       Calls.push_back(CE);
+      llvm::outs() << "--> " << this->getDecl()->getNameAsString() << " calls " << Callee->getNameAsString() << "\n";
+    }
+      
   }
+  
 
   if (Calls.size() == 0)
     return numUpdates;
@@ -1075,7 +1078,7 @@ void DataTracker::analyze() {
   return;
 }
 
-std::vector<uint8_t> DataTracker::getParamAccessModes() const {
+std::vector<uint8_t> DataTracker::getParamAccessModes(bool crossFnOffloading) const {
   std::vector<uint8_t> results;
   std::vector<ParmVarDecl *> Params = FD->parameters();
   if (Params.size() == 0)
@@ -1090,31 +1093,41 @@ std::vector<uint8_t> DataTracker::getParamAccessModes() const {
     }
 
     int Flags = A_NOP;
+    int OffldOnly = A_OFFLD;
     for (AccessInfo Entry : AccessLog) {
-      if (Entry.VD && Entry.VD->getID() == Params[I]->getID())
+      if (Entry.VD && Entry.VD->getID() == Params[I]->getID()) {
         Flags |= Entry.Flags;
+        OffldOnly &= Flags;
+      }
     }
-    // clear offloaded flag
-    Flags &= ~A_OFFLD;
+    if (!crossFnOffloading || !OffldOnly) {
+      // clear offloaded flag
+      Flags |= ~A_OFFLD;
+    }
 
     results.push_back(Flags);
   }
   return results;
 }
 
-std::vector<uint8_t> DataTracker::getGlobalAccessModes() const {
+std::vector<uint8_t> DataTracker::getGlobalAccessModes(bool crossFnOffloading) const {
   std::vector<uint8_t> results;
   if (Globals.size() == 0)
     return results;
 
   for (const ValueDecl *Global : Globals) {
     int Flags = A_NOP;
+    int OffldOnly = A_OFFLD;
     for (AccessInfo Entry : AccessLog) {
-      if (Entry.VD && Entry.VD->getID() == Global->getID())
+      if (Entry.VD && Entry.VD->getID() == Global->getID()) {
         Flags |= Entry.Flags;
+        OffldOnly &= Flags;
+      }
     }
-    // clear offloaded flag
-    Flags &= ~A_OFFLD;
+    if (!crossFnOffloading || !OffldOnly) {
+      // clear offloaded flag
+      Flags |= ~A_OFFLD;
+    }
     results.push_back(Flags);
   }
   return results;

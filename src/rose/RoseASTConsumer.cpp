@@ -19,9 +19,15 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
 
   performInterproceduralAnalysis(FunctionTrackers);
 
-  llvm::outs() << "\n================================================================================n";
   for (DataTracker *DT : FunctionTrackers) {
     DT->classifyOffloadedOps();
+  }
+
+  performAggressiveCrossFunctionOffloading(FunctionTrackers);
+
+  llvm::outs() << "\n================================================================================n";
+  for (DataTracker *DT : FunctionTrackers) {
+    // DT->classifyOffloadedOps();
     DT->printAccessLog();
     // computes data mappings for the scope of single target regions
     DT->naiveAnalyze();

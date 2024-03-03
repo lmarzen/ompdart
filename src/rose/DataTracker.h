@@ -78,8 +78,8 @@ public:
   void classifyOffloadedOps();
   void naiveAnalyze();
   void analyze();
-  std::vector<uint8_t> getParamAccessModes() const;
-  std::vector<uint8_t> getGlobalAccessModes() const;
+  std::vector<uint8_t> getParamAccessModes(bool crossFnOffloading) const;
+  std::vector<uint8_t> getGlobalAccessModes(bool crossFnOffloading) const;
 };
 
 #endif
