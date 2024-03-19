@@ -26,7 +26,7 @@ void RoseASTConsumer::HandleTranslationUnit(ASTContext &Context) {
   // uncomment the line below to enable the feature.
   // performAggressiveCrossFunctionOffloading(FunctionTrackers);
 
-  llvm::outs() << "\n================================================================================n";
+  llvm::outs() << "\n================================================================================\n";
   for (DataTracker *DT : FunctionTrackers) {
     // DT->classifyOffloadedOps();
     DT->printAccessLog();
