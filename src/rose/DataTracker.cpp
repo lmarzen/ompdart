@@ -741,6 +741,8 @@ void DataTracker::naiveAnalyze() {
   for (Kernel *K : Kernels) {
     // Seperate reads and writes into their own sets.
     for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
+      if (K->isPrivate(It->VD))
+        continue;
       switch (It->Flags & 0b00000111)
       {
       case A_RDONLY:
