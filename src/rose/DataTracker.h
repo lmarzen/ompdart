@@ -38,7 +38,10 @@ private:
                                    const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
                                    const std::vector<uint8_t> &GlobalFlags);
   const Stmt *findOutermostCapturingStmt(const Stmt *ContainingStmt,
-                                         const Stmt *S);
+                                         const Stmt *S) const;
+  const AccessInfo *findOutermostIndexingLoop(std::vector<AccessInfo>::iterator &A,
+                                              std::vector<const AccessInfo *> &LoopStack,
+                                              std::vector<AccessInfo>::iterator &insertionLocLim) const;
   int insertAccessLogEntry(const AccessInfo &NewEntry);
   void analyzeValueDecl(const ValueDecl *VD);
   void analyzeValueDeclArrayBounds(const ValueDecl *VD);

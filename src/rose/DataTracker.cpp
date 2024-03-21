@@ -639,11 +639,83 @@ void DataTracker::classifyOffloadedOps() {
   return;
 }
 
+class VariableFinder : public RecursiveASTVisitor<VariableFinder> {
+public:
+    // explicit VariableFinder(ASTContext *Context) : Context(Context) {}
+
+    bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+        if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+            ReferencedVariables.insert(VD);
+        }
+        return true;
+    }
+
+    boost::container::flat_set<const VarDecl *> getReferencedVariables() const {
+        return ReferencedVariables;
+    }
+
+private:
+    // ASTContext *Context;
+    boost::container::flat_set<const VarDecl *> ReferencedVariables;
+};
+
+/* Algorithm for determining placement of target update OpenMP directives for
+ * array accesses in nested loops nested to arbitrary depth. LoopStack is a
+ * stack that contains references to for statements. 
+ * The top of the stack corresponds to the for loop that includes array access
+ * A in its body, with each subsequent element represents the enclosing loop. 
+ * insertionLocLim stores a statement which the directive must not proceed,
+ * typically this is the end of the preceeding target kernel's scope. 
+ * Returns a pointer to the statement the directive should directly
+ * proceed or follow.
+ */
+const AccessInfo *DataTracker::findOutermostIndexingLoop(std::vector<AccessInfo>::iterator &A,
+                                                         std::vector<const AccessInfo *> &LoopStack,
+                                                         std::vector<AccessInfo>::iterator &insertionLocLim) const
+{
+  SourceManager &SM = Context->getSourceManager();
+  const Expr *Idx = A->ArraySubscript->getIdx();
+  // llvm::outs() << "Found var ArraySubscript ";
+  // Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
+  // llvm::outs() << "\n";
+  VariableFinder Finder;
+  Finder.TraverseStmt(const_cast<Expr *>(Idx));
+  boost::container::flat_set<const VarDecl *> IndexingVars = Finder.getReferencedVariables();
+  // llvm::outs() << "INDEXING VARS:";
+  // for (const VarDecl *IndexingVar : IndexingVars) {
+  //   llvm::outs() << " " << IndexingVar->getNameAsString() << ":" << IndexingVar->getID();
+  // }
+  // llvm::outs() << "\n";
+
+  const AccessInfo *OutermostIndexingLoop = nullptr;
+  for (auto Rit = LoopStack.rbegin();
+        Rit != LoopStack.rend();
+        ++Rit) {
+    if (insertionLocLim != AccessLog.end() && SM.isBeforeInTranslationUnit((*Rit)->Loc, insertionLocLim->Loc))
+      break;
+    const ValueDecl *IndexValueDecl = (*Rit)->LoopBounds->IndexDecl;
+    if (!IndexValueDecl)
+      continue;
+    const VarDecl *IndexVarDecl = dyn_cast<const VarDecl>(IndexValueDecl);
+    if (!IndexVarDecl)
+      continue;
+  
+    // llvm::outs() << "INDEXDECL:";
+    // llvm::outs() << " " << IndexVarDecl->getNameAsString() << ":" << IndexVarDecl->getID() << "\n";
+    if (!IndexingVars.contains(IndexVarDecl))
+      continue;
+    OutermostIndexingLoop = (*Rit);
+    // llvm::outs() << "OutermostIndexingLoop:";
+    // llvm::outs() << " " << OutermostIndexingLoop->Loc.printToString(SM) << "\n";
+  }
+  return OutermostIndexingLoop;
+}
+
 /* Finds the outermost Stmt in ContainingStmt that captures S. Returns nullptr
  * on error.
  */
 const Stmt *DataTracker::findOutermostCapturingStmt(const Stmt *ContainingStmt,
-                                                    const Stmt *S) {
+                                                    const Stmt *S) const {
   const Stmt *CurrentStmt = S;
   while (true) {
     const auto &ImmediateParents = Context->getParents(*CurrentStmt);
@@ -716,26 +788,6 @@ struct DataFlowOf {
   }
 };
 
-class VariableFinder : public RecursiveASTVisitor<VariableFinder> {
-public:
-    // explicit VariableFinder(ASTContext *Context) : Context(Context) {}
-
-    bool VisitDeclRefExpr(DeclRefExpr *DRE) {
-        if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-            ReferencedVariables.insert(VD);
-        }
-        return true;
-    }
-
-    boost::container::flat_set<const VarDecl *> getReferencedVariables() const {
-        return ReferencedVariables;
-    }
-
-private:
-    // ASTContext *Context;
-    boost::container::flat_set<const VarDecl *> ReferencedVariables;
-};
-
 void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   SourceManager &SM = Context->getSourceManager();
   bool MapTo = false;
@@ -749,7 +801,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   std::stack<LoopDependency> LoopDependencyStack;
   std::stack<CondDependency> CondDependencyStack;
   std::vector<ArrayAccess> ArrayBoundsList;
-  std::vector<const AccessInfo *> LoopStack; 
+  std::vector<const AccessInfo *> LoopStack;
+  std::vector<const AccessInfo *> PrevHostLoopStack; 
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool isPointerType = VD->getType()->isAnyPointerType();
@@ -831,7 +884,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
           AccessInfo FirstAccess = *(LD.FirstHostAccess); // copy
           // Indicates to the rewriter that this statement is to be placed
           // directive directly before the loop end.
-          FirstAccess.Barrier = ScopeBarrier::LoopEnd; 
+          FirstAccess.Barrier = ScopeBarrier::LoopEnd;
           TargetScope->UpdateFrom.emplace_back(FirstAccess);
           DataValidOnHost = true;
         }
@@ -899,6 +952,21 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
           // PrevHostIt == AccessLog.end() indicates the first access of a
           // global or parameter on the target device.
           MapTo = true;
+
+        } else if (PrevHostIt->ArraySubscript) {
+          const AccessInfo *OutermostIndexingLoop = findOutermostIndexingLoop(PrevHostIt, PrevHostLoopStack, PrevTgtIt);
+          if (OutermostIndexingLoop) {
+            AccessInfo OutermostIndexingLoopCopy = *OutermostIndexingLoop; // copy
+            OutermostIndexingLoopCopy.VD = PrevHostIt->VD;
+            // indicates to the rewriter that this statement should be placed
+            // directly after the end of the loop
+            OutermostIndexingLoopCopy.Barrier = ScopeBarrier::LoopEnd;
+            TargetScope->UpdateTo.emplace_back(OutermostIndexingLoopCopy);
+          } else {
+            // does not depend on loop index.
+            TargetScope->UpdateTo.emplace_back(*PrevHostIt);
+          }
+          
         } else {
           TargetScope->UpdateTo.emplace_back(*PrevHostIt);
         }
@@ -949,41 +1017,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         if (SM.isBeforeInTranslationUnit(TargetScope->EndLoc, It->Loc)) {
           MapFrom = true;
         } else if (It->ArraySubscript) {
-          const Expr *Idx = It->ArraySubscript->getIdx();
-          llvm::outs() << "Found var ArraySubscript ";
-          Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
-          llvm::outs() << "\n";
-          VariableFinder Finder;
-          Finder.TraverseStmt(const_cast<Expr *>(Idx));
-          boost::container::flat_set<const VarDecl *> IndexingVars = Finder.getReferencedVariables();
-          llvm::outs() << "INDEXING VARS:";
-          for (const VarDecl *IndexingVar : IndexingVars) {
-            llvm::outs() << " " << IndexingVar->getNameAsString() << ":" << IndexingVar->getID();
-          }
-          llvm::outs() << "\n";
-
-          const AccessInfo *OutermostIndexingLoop = nullptr;
-          for (auto Rit = LoopStack.rbegin();
-               Rit != LoopStack.rend();
-               ++Rit) {
-            if (PrevTgtIt != AccessLog.end() && SM.isBeforeInTranslationUnit((*Rit)->Loc, PrevTgtIt->Loc))
-              break;
-            const ValueDecl *IndexValueDecl = (*Rit)->LoopBounds->IndexDecl;
-            if (!IndexValueDecl)
-              continue;
-            const VarDecl *IndexVarDecl = dyn_cast<const VarDecl>(IndexValueDecl);
-            if (!IndexVarDecl)
-              continue;
-          
-            llvm::outs() << "INDEXDECL:";
-            llvm::outs() << " " << IndexVarDecl->getNameAsString() << ":" << IndexVarDecl->getID() << "\n";
-            if (!IndexingVars.contains(IndexVarDecl))
-              continue;
-            OutermostIndexingLoop = (*Rit);
-            llvm::outs() << "OutermostIndexingLoop:";
-            llvm::outs() << " " << OutermostIndexingLoop->Loc.printToString(SM) << "\n";
-          }
-        
+          const AccessInfo *OutermostIndexingLoop = findOutermostIndexingLoop(It, LoopStack, PrevTgtIt);
           if (OutermostIndexingLoop) {
             AccessInfo OutermostIndexingLoopCopy = *OutermostIndexingLoop; // copy
             OutermostIndexingLoopCopy.VD = It->VD;
@@ -1015,6 +1049,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         LoopDependencyStack.top().FirstHostAccess = &(*It);
       }
       PrevHostIt = It;
+      PrevHostLoopStack = LoopStack;
     } // end check access on host
 
     // Advance It to next access entry of VD

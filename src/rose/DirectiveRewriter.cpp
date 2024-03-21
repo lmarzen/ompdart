@@ -54,16 +54,28 @@ const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
   }
 }
 
-/* Returns the SourceLocation immediately after a Semi-Terminated Stmt.
+/* Returns the SourceLocation immediately after a Semi-Terminated Stmt (or
+ * closing bracket).
  */
 SourceLocation getSemiTerminatedStmtEndLoc(SourceManager &SourceMgr, const Stmt *S) {
   SourceLocation Loc = S->getEndLoc();
   const char *Source = SourceMgr.getCharacterData(Loc);
   unsigned int Offset = 1;
-  while (*Source != '\0' && *Source != ';') {
+  int OpenBrackets = 1;
+  while (*Source != '\0'
+      && *Source != ';'
+      && OpenBrackets != 0) {
+    if (*Source == '{')
+      ++OpenBrackets;
+    if (*Source == '}')
+      --OpenBrackets;
     ++Offset;
     ++Source;
   }
+  // fix off by one for closed brackets
+  if (OpenBrackets == 0)
+    --Offset;
+
   return Loc.getLocWithOffset(Offset);
 }
 
@@ -238,12 +250,14 @@ void rewriteUpdateTo(Rewriter &R,
   for (const AccessInfo &Access : Data->getUpdateTo()) {
     const Stmt *FullStmt = getSemiTerminatedStmt(Context, Access.S);
 
-    if (const ForStmt *FS = dyn_cast<ForStmt>(FullStmt))
-      FullStmt = FS->getBody();
-    else if (const WhileStmt *WS = dyn_cast<WhileStmt>(FullStmt))
-      FullStmt = WS->getBody();
-    else if (const DoStmt *DS = dyn_cast<DoStmt>(FullStmt))
-      FullStmt = DS->getBody();
+    if (Access.Barrier != ScopeBarrier::LoopEnd) {
+      if (const ForStmt *FS = dyn_cast<ForStmt>(FullStmt))
+        FullStmt = FS->getBody();
+      else if (const WhileStmt *WS = dyn_cast<WhileStmt>(FullStmt))
+        FullStmt = WS->getBody();
+      else if (const DoStmt *DS = dyn_cast<DoStmt>(FullStmt))
+        FullStmt = DS->getBody();
+    }    
 
     auto It = std::find_if(UpdateToList.begin(), UpdateToList.end(),
                            [FullStmt](UpdateDirInfo &U) {
@@ -292,7 +306,12 @@ void rewriteUpdateTo(Rewriter &R,
     } else {
       // Inserting after a semi-terminated statement.
       InsertLoc = getSemiTerminatedStmtEndLoc(SM, Update.FullStmt);
-    
+
+      llvm::outs() << "Update.FullStmt...";
+      Update.FullStmt->printPretty(llvm::outs(), nullptr, PrintingPolicy(LangOptions()));
+      llvm::outs() << "end\n";
+      llvm::outs() << "InsertLoc..." << InsertLoc.printToString(Context.getSourceManager()) << "\n";
+
       UpdateToDirective = "\n";
       UpdateToDirective += ParentIndent + IndentStep;
       UpdateToDirective += "#pragma omp target update to(";
