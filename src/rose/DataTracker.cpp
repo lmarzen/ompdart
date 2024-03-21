@@ -931,6 +931,9 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       PrevTgtIt = It;
 
     } else if (It->Flags & A_OFFLD) {
+      // If not read-only then abandon attempt to classify as firstprivate.
+      DataFirstPrivate &= (It->Flags == (A_RDONLY  | A_OFFLD));
+      
       if (!DataInitialized) {
         if (It->Flags & A_RDONLY) {
           // Read before write!
@@ -940,11 +943,20 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
               "variable '%0' is uninitialized when used here");
           DiagnosticBuilder DiagBuilder = DiagEngine.Report(It->Loc, DiagID);
           DiagBuilder.AddString(VD->getNameAsString());
-        } else if ((It->Flags == (A_WRONLY  | A_OFFLD))
-                || (It->Flags == (A_UNKNOWN | A_OFFLD))) { // Write/Unknown
+        } else if (//CondDependencyStack.empty()
+               //&& 
+               (   (It->Flags == (A_WRONLY  | A_OFFLD))
+                   || (It->Flags == (A_UNKNOWN | A_OFFLD))
+                  )) { // Write/Unknown
           DataInitialized = true;
         }
-      } else if (!DataValidOnDevice && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
+      } else if (
+          // If data is written to but it is done so in a conditional statement,
+          // copy to target device. 
+          (!CondDependencyStack.empty() && (It->Flags & (A_WRONLY | A_UNKNOWN))) // Write/ReadWrite/Unknown
+          ||
+          // data is read, we need data present, copy to target device
+          (!DataValidOnDevice && (It->Flags & (A_RDONLY | A_UNKNOWN)))) { // Read/ReadWrite/Unknown
         // Data is already initalized, but not on target device
         if (PrevHostIt == AccessLog.end()
          || SM.isBeforeInTranslationUnit(PrevHostIt->Loc,
@@ -972,14 +984,13 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         }
         DataValidOnDevice = true;
       }
-      if (It->Flags & (A_WRONLY | A_UNKNOWN)) {// Write/ReadWrite/Unknown
+      if ((It->Flags & (A_WRONLY | A_UNKNOWN))) {// Write/ReadWrite/Unknown
         DataValidOnDevice = true;
         DataValidOnHost = false;
         // a single write on the target guarantees we need to at allocate space
         MapAlloc = true;
       }
-      // If not read-only then abandon attempt to classify as firstprivate.
-      DataFirstPrivate &= (It->Flags == (A_RDONLY  | A_OFFLD));
+
       UsedInLastKernel = true;
 
       // end check access on target device
