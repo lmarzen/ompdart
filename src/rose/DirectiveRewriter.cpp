@@ -29,6 +29,8 @@ struct ClauseDirInfo {
 const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
   const Stmt *CurrentStmt = S;
   while (true) {
+    CurrentStmt->printPretty(llvm::outs(), NULL, PrintingPolicy(LangOptions()));
+    llvm::outs() << "end\n";
     const auto &ImmediateParents = Context.getParents(*CurrentStmt);
     if (ImmediateParents.size() == 0)
       return nullptr;
@@ -36,6 +38,11 @@ const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
     if (!ParentStmt) {
       const VarDecl *VD = ImmediateParents[0].get<VarDecl>();
+      if (VD == nullptr) {
+        // we may need a more specific check here. This was added because a for
+        // loop didn't have a parent. So this works for now.
+        return CurrentStmt;
+      }
       const auto &VDParents = Context.getParents(*VD);
       return VDParents[0].get<Stmt>();
     }
