@@ -1167,8 +1167,16 @@ void DataTracker::analyze() {
   // Map a list of all the data the TargetScope will be responsible for.
   boost::container::flat_set<const ValueDecl *> TargetScopeDecls;
   for (auto It = AccessLog.begin(); It != AccessLog.end(); ++It) {
-    if (It->Flags & A_OFFLD && It->Barrier == ScopeBarrier::None)
+    if (It->Flags & A_OFFLD
+     && It->Barrier == ScopeBarrier::None)
       TargetScopeDecls.insert(It->VD);
+  }
+
+  for (Kernel *K : Kernels) {
+    auto Privates = K->getPrivateDecls();
+    for (const ValueDecl *VD : Privates) {
+      Disabled.insert(VD->getID());
+    }
   }
 
   for (const ValueDecl *VD : TargetScopeDecls) {
