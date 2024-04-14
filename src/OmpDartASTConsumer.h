@@ -12,13 +12,15 @@ class OmpDartASTConsumer : public ASTConsumer {
   SourceManager *SM;
   OmpDartASTVisitor *Visitor;
   Rewriter TheRewriter;
+  std::string OutFilePath;
 
   std::vector<DataTracker *> &FunctionTrackers;
   std::vector<Kernel *> &Kernels;
 
 public:
-  explicit OmpDartASTConsumer(CompilerInstance *CI);
-  
+  explicit OmpDartASTConsumer(CompilerInstance *CI,
+                              const std::string *OutFilePath);
+
   virtual void HandleTranslationUnit(ASTContext &Context);
 
 }; // end class OmpDartASTConsumer

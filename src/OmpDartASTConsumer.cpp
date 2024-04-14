@@ -2,15 +2,18 @@
 
 #include "AnalysisUtils.h"
 #include "DirectiveRewriter.h"
+#include <string>
 
 using namespace clang;
 
-OmpDartASTConsumer::OmpDartASTConsumer(CompilerInstance *CI)
+OmpDartASTConsumer::OmpDartASTConsumer(CompilerInstance *CI,
+                                       const std::string *OutFilePath)
     : Context(&(CI->getASTContext())), SM(&(Context->getSourceManager())),
       Visitor(new OmpDartASTVisitor(CI)),
       FunctionTrackers(Visitor->getFunctionTrackers()),
       Kernels(Visitor->getTargetRegions()) {
   TheRewriter.setSourceMgr(*SM, Context->getLangOpts());
+  this->OutFilePath = *OutFilePath;
 }
 
 void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
@@ -74,15 +77,18 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
   }
 
   FileID FID = SM->getMainFileID();
-  std::string ParsedFilename =
-      SM->getFilename(SM->getLocForStartOfFile(FID)).str();
-  char *CParsedFilename = strdup(ParsedFilename.c_str());
-  char *Basename = basename(CParsedFilename);
+  if (OutFilePath.empty()) {
+    std::string ParsedFilename =
+        SM->getFilename(SM->getLocForStartOfFile(FID)).str();
+    char *CParsedFilename = strdup(ParsedFilename.c_str());
+    char *Basename = basename(CParsedFilename);
 
-  std::string Filename = "/tmp/" + std::string(Basename);
-  llvm::outs() << "Modified File at " << Filename << "\n";
+    OutFilePath = "/tmp/" + std::string(Basename);
+    free(CParsedFilename);
+  }
+  llvm::outs() << "Modified File at " << OutFilePath << "\n";
   std::error_code ErrorCode;
-  llvm::raw_fd_ostream OutFile(Filename, ErrorCode, llvm::sys::fs::OF_None);
+  llvm::raw_fd_ostream OutFile(OutFilePath, ErrorCode, llvm::sys::fs::OF_None);
   if (!ErrorCode) {
     // print to terminal
     // TheRewriter.getEditBuffer(SM.getMainFileID()).write(llvm::outs());
@@ -92,5 +98,4 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     llvm::outs() << "Could not create file\n";
   }
   OutFile.close();
-  free(CParsedFilename);
 }
