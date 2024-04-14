@@ -1,2 +1,4 @@
-# rose
-ROSE - An OpenMP GPU Data Reuse Analysis Tool
+# OMPDart
+OMPDart - OpenMP Data Reduction Tool
+
+An OpenMP GPU Data Mapping and Reuse Analysis Tool
