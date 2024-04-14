@@ -8,7 +8,7 @@
 
 using namespace clang;
 
-class RoseASTVisitor : public RecursiveASTVisitor<RoseASTVisitor> {
+class OmpDartASTVisitor : public RecursiveASTVisitor<OmpDartASTVisitor> {
 private:
   ASTContext *Context;
   SourceManager *SM;
@@ -26,7 +26,7 @@ private:
   bool inLastFunction(SourceLocation Loc);
 
 public:
-  explicit RoseASTVisitor(CompilerInstance *CI);
+  explicit OmpDartASTVisitor(CompilerInstance *CI);
 
   std::vector<DataTracker *> &getFunctionTrackers();
   std::vector<Kernel *> &getTargetRegions(); 
@@ -46,6 +46,6 @@ public:
   virtual bool VisitSwitchStmt(SwitchStmt *SS);
   virtual bool VisitOMPExecutableDirective(OMPExecutableDirective *S);
 
-}; // end class RoseASTVisitor
+}; // end class OmpDartASTVisitor
 
 #endif

@@ -3,24 +3,24 @@
 
 #include "clang/Rewrite/Core/Rewriter.h"
 
-#include "RoseASTVisitor.h"
+#include "OmpDartASTVisitor.h"
 
 using namespace clang;
 
-class RoseASTConsumer : public ASTConsumer {
+class OmpDartASTConsumer : public ASTConsumer {
   ASTContext *Context;
   SourceManager *SM;
-  RoseASTVisitor *Visitor;
+  OmpDartASTVisitor *Visitor;
   Rewriter TheRewriter;
 
   std::vector<DataTracker *> &FunctionTrackers;
   std::vector<Kernel *> &Kernels;
 
 public:
-  explicit RoseASTConsumer(CompilerInstance *CI);
+  explicit OmpDartASTConsumer(CompilerInstance *CI);
   
   virtual void HandleTranslationUnit(ASTContext &Context);
 
-}; // end class RoseASTConsumer
+}; // end class OmpDartASTConsumer
 
 #endif

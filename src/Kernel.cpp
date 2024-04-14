@@ -5,23 +5,19 @@
 using namespace clang;
 
 Kernel::Kernel(const OMPExecutableDirective *TD, const FunctionDecl *FD,
-               ASTContext *Context) 
-  : Context(Context), TD(TD), FD(FD) {}
+               ASTContext *Context)
+    : Context(Context), TD(TD), FD(FD) {}
 
-const OMPExecutableDirective *Kernel::getDirective() const {
-  return TD;
-}
+const OMPExecutableDirective *Kernel::getDirective() const { return TD; }
 
-const FunctionDecl *Kernel::getFunction() const {
-  return FD;
-}
+const FunctionDecl *Kernel::getFunction() const { return FD; }
 
 bool Kernel::contains(SourceLocation Loc) const {
   SourceManager &SM = Context->getSourceManager();
   SourceLocation CSBeginLoc = this->getBeginLoc();
   SourceLocation CSEndLoc = this->getEndLoc();
-  return !SM.isBeforeInTranslationUnit(Loc, CSBeginLoc)
-         && SM.isBeforeInTranslationUnit(Loc, CSEndLoc);
+  return !SM.isBeforeInTranslationUnit(Loc, CSBeginLoc) &&
+         SM.isBeforeInTranslationUnit(Loc, CSEndLoc);
 }
 
 SourceLocation Kernel::getBeginLoc() const {
@@ -49,7 +45,8 @@ int Kernel::recordPrivate(const ValueDecl *VD) {
   return 1;
 }
 
-const boost::container::flat_set<const ValueDecl *> &Kernel::getPrivateDecls() const {
+const boost::container::flat_set<const ValueDecl *> &
+Kernel::getPrivateDecls() const {
   return PrivateDecls;
 }
 
@@ -116,12 +113,15 @@ void Kernel::print(llvm::raw_ostream &OS, const SourceManager &SM) const {
 const boost::container::flat_set<const ValueDecl *> &Kernel::getMapTo() const {
   return MapTo;
 }
-const boost::container::flat_set<const ValueDecl *> &Kernel::getMapFrom() const {
+const boost::container::flat_set<const ValueDecl *> &
+Kernel::getMapFrom() const {
   return MapFrom;
 }
-const boost::container::flat_set<const ValueDecl *> &Kernel::getMapToFrom() const {
+const boost::container::flat_set<const ValueDecl *> &
+Kernel::getMapToFrom() const {
   return MapToFrom;
 }
-const boost::container::flat_set<const ValueDecl *> &Kernel::getMapAlloc() const {
+const boost::container::flat_set<const ValueDecl *> &
+Kernel::getMapAlloc() const {
   return MapAlloc;
 }

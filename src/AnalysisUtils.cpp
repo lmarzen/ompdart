@@ -2,7 +2,8 @@
 
 using namespace clang;
 
-void performInterproceduralAnalysis(std::vector<DataTracker *> &FunctionTrackers) {
+void performInterproceduralAnalysis(
+    std::vector<DataTracker *> &FunctionTrackers) {
   // Using the information we have collected about read and writes we can
   // update calls to functions with the details about how a pointer was used
   // after it was passed. We may need to do this multiple times as we may need
@@ -16,8 +17,8 @@ void performInterproceduralAnalysis(std::vector<DataTracker *> &FunctionTrackers
     for (DataTracker *DT : FunctionTrackers) {
       for (DataTracker *TmpDT : FunctionTrackers) {
         numUpdates += TmpDT->updateTouchedByCallee(
-                        DT->getDecl(),    DT->getParamAccessModes(false),
-                        DT->getGlobals(), DT->getGlobalAccessModes(false));
+            DT->getDecl(), DT->getParamAccessModes(false), DT->getGlobals(),
+            DT->getGlobalAccessModes(false));
       }
     }
     llvm::outs() << numUpdates << "\n";
@@ -25,7 +26,8 @@ void performInterproceduralAnalysis(std::vector<DataTracker *> &FunctionTrackers
   return;
 }
 
-void performAggressiveCrossFunctionOffloading(std::vector<DataTracker *> &FunctionTrackers) {
+void performAggressiveCrossFunctionOffloading(
+    std::vector<DataTracker *> &FunctionTrackers) {
   // If the variable is accessed only on the target device, leave it to the
   // calling function to do the data mapping, otherwise we should clear the
   // A_OFFLD bit to indicate that this function expects move this parameter.
@@ -42,12 +44,13 @@ void performAggressiveCrossFunctionOffloading(std::vector<DataTracker *> &Functi
 
   for (DataTracker *DT : FunctionTrackers) {
     for (int I = 0; I < FunctionTrackers.size(); ++I) {
-      llvm::outs() << "ParamAccessModess for " << DT->getDecl()->getNameAsString()
-                   << " calling " << FunctionTrackers[I]->getDecl()->getNameAsString() << "\n";
+      llvm::outs() << "ParamAccessModess for "
+                   << DT->getDecl()->getNameAsString() << " calling "
+                   << FunctionTrackers[I]->getDecl()->getNameAsString() << "\n";
       DT->updateTouchedByCallee(
-          FunctionTrackers[I]->getDecl(), ParamAccessModess[I], 
+          FunctionTrackers[I]->getDecl(), ParamAccessModess[I],
           FunctionTrackers[I]->getGlobals(), GlobalAccessModess[I]);
     }
-  } 
+  }
   return;
 }

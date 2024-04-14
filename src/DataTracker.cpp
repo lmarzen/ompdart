@@ -32,17 +32,15 @@ DataTracker::DataTracker(FunctionDecl *FD, ASTContext *Context) {
   this->LastArraySubscript = nullptr;
 };
 
-const FunctionDecl *DataTracker::getDecl() const {
-  return FD;
-}
+const FunctionDecl *DataTracker::getDecl() const { return FD; }
 
 bool DataTracker::contains(SourceLocation Loc) const {
   SourceManager &SM = Context->getSourceManager();
   Stmt *Body = FD->getBody();
   SourceLocation BodyBeginLoc = Body->getBeginLoc();
   SourceLocation BodyEndLoc = Body->getEndLoc();
-  return !SM.isBeforeInTranslationUnit(Loc, BodyBeginLoc)
-         && SM.isBeforeInTranslationUnit(Loc, BodyEndLoc);
+  return !SM.isBeforeInTranslationUnit(Loc, BodyBeginLoc) &&
+         SM.isBeforeInTranslationUnit(Loc, BodyEndLoc);
 }
 
 int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
@@ -66,11 +64,8 @@ int DataTracker::insertAccessLogEntry(const AccessInfo &NewEntry) {
   return 1;
 }
 
-int DataTracker::recordAccess(const ValueDecl *VD,
-                              SourceLocation Loc,
-                              const Stmt *S,
-                              uint8_t Flags,
-                              bool overwrite) {
+int DataTracker::recordAccess(const ValueDecl *VD, SourceLocation Loc,
+                              const Stmt *S, uint8_t Flags, bool overwrite) {
   SourceManager &SM = Context->getSourceManager();
   if (LastKernel) {
     // Don't record private data.
@@ -87,22 +82,22 @@ int DataTracker::recordAccess(const ValueDecl *VD,
     if (VD->getNameAsString()[0] == '.')
       return 0;
 
-    if (!SM.isBeforeInTranslationUnit(VD->getBeginLoc(), 
-                                      LastKernel->getDirective()->getBeginLoc())
-     && SM.isBeforeInTranslationUnit(VD->getBeginLoc(), 
+    if (!SM.isBeforeInTranslationUnit(
+            VD->getBeginLoc(), LastKernel->getDirective()->getBeginLoc()) &&
+        SM.isBeforeInTranslationUnit(VD->getBeginLoc(),
                                      LastKernel->getDirective()->getEndLoc()))
       return 0;
-      
-    if (!SM.isBeforeInTranslationUnit(Loc, 
-                                      LastKernel->getDirective()->getBeginLoc())
-     && SM.isBeforeInTranslationUnit(Loc, 
+
+    if (!SM.isBeforeInTranslationUnit(
+            Loc, LastKernel->getDirective()->getBeginLoc()) &&
+        SM.isBeforeInTranslationUnit(Loc,
                                      LastKernel->getDirective()->getEndLoc()))
       return 0;
 
     if (LastKernel->NestedDirectives.size() > 0) {
       auto *NestedDir = LastKernel->NestedDirectives.back();
-      if (!SM.isBeforeInTranslationUnit(Loc, NestedDir->getBeginLoc())
-       && SM.isBeforeInTranslationUnit(Loc, NestedDir->getEndLoc()))
+      if (!SM.isBeforeInTranslationUnit(Loc, NestedDir->getBeginLoc()) &&
+          SM.isBeforeInTranslationUnit(Loc, NestedDir->getEndLoc()))
         return 0;
     }
 
@@ -124,30 +119,28 @@ int DataTracker::recordAccess(const ValueDecl *VD,
     recordGlobal(VD);
 
   AccessInfo NewEntry = {};
-  NewEntry.VD      = VD;
-  NewEntry.S       = S;
-  NewEntry.Loc     = Loc;
-  NewEntry.Flags   = Flags;
+  NewEntry.VD = VD;
+  NewEntry.S = S;
+  NewEntry.Loc = Loc;
+  NewEntry.Flags = Flags;
 
   if (VD && VD == LastArrayBasePointer) {
     NewEntry.ArraySubscript = LastArraySubscript;
-    LastArrayBasePointer    = nullptr;
-    LastArraySubscript      = nullptr;
+    LastArrayBasePointer = nullptr;
+    LastArraySubscript = nullptr;
   }
 
   return insertAccessLogEntry(NewEntry);
 }
 
-const std::vector<AccessInfo> &DataTracker::getAccessLog() {
-  return AccessLog;
-}
+const std::vector<AccessInfo> &DataTracker::getAccessLog() { return AccessLog; }
 
 /* Update reads/writes that may have happened on by the Callee parameters passed
  * by pointer.
-*/
-int DataTracker::updateParamsTouchedByCallee(const FunctionDecl *Callee,
-                                             const std::vector<const CallExpr *> &Calls,
-                                             const std::vector<uint8_t> &ParamModes) {
+ */
+int DataTracker::updateParamsTouchedByCallee(
+    const FunctionDecl *Callee, const std::vector<const CallExpr *> &Calls,
+    const std::vector<uint8_t> &ParamModes) {
   int numUpdates = 0;
   if (Callee->getNumParams() != ParamModes.size()) {
     llvm::outs() << "\nwarning: unable to update parameters for function "
@@ -174,7 +167,8 @@ int DataTracker::updateParamsTouchedByCallee(const FunctionDecl *Callee,
         continue;
       }
       const ValueDecl *VD = DRE->getDecl();
-      numUpdates += recordAccess(VD, DRE->getLocation(), nullptr, ParamModes[I], true);
+      numUpdates +=
+          recordAccess(VD, DRE->getLocation(), nullptr, ParamModes[I], true);
     }
   }
   return numUpdates;
@@ -183,10 +177,10 @@ int DataTracker::updateParamsTouchedByCallee(const FunctionDecl *Callee,
 /* Update reads/writes that may have occurred by the Callee on global variables.
  * We will need to insert these into our own AccessLog.
  */
-int DataTracker::updateGlobalsTouchedByCallee(const FunctionDecl *Callee,
-                                              const std::vector<const CallExpr *> &Calls,
-                                              const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
-                                              const std::vector<uint8_t> &GlobalModes) {
+int DataTracker::updateGlobalsTouchedByCallee(
+    const FunctionDecl *Callee, const std::vector<const CallExpr *> &Calls,
+    const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
+    const std::vector<uint8_t> &GlobalModes) {
   int numUpdates = 0;
 
   if (GlobalsAccessed.size() != GlobalModes.size()) {
@@ -201,35 +195,36 @@ int DataTracker::updateGlobalsTouchedByCallee(const FunctionDecl *Callee,
   int I = 0;
   for (const ValueDecl *Global : GlobalsAccessed) {
     for (const CallExpr *CE : Calls) {
-      numUpdates += recordAccess(Global, CE->getBeginLoc(), nullptr, GlobalModes[I], true);
+      numUpdates += recordAccess(Global, CE->getBeginLoc(), nullptr,
+                                 GlobalModes[I], true);
     }
     recordGlobal(Global);
     ++I;
   }
-  
+
   return numUpdates;
 }
 
-int DataTracker::updateTouchedByCallee(const FunctionDecl *Callee,
-                                       const std::vector<uint8_t> &ParamModes,
-                                       const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
-                                       const std::vector<uint8_t> &GlobalModes) {
+int DataTracker::updateTouchedByCallee(
+    const FunctionDecl *Callee, const std::vector<uint8_t> &ParamModes,
+    const boost::container::flat_set<const ValueDecl *> &GlobalsAccessed,
+    const std::vector<uint8_t> &GlobalModes) {
   int numUpdates = 0;
   // Start by finding all the calls to the callee.
   std::vector<const CallExpr *> Calls;
   for (const CallExpr *CE : CallExprs) {
     if (CE->getDirectCallee()->getDefinition() == Callee) {
       Calls.push_back(CE);
-      llvm::outs() << "--> " << this->getDecl()->getNameAsString() << " calls " << Callee->getNameAsString() << "\n";
+      llvm::outs() << "--> " << this->getDecl()->getNameAsString() << " calls "
+                   << Callee->getNameAsString() << "\n";
     }
-      
   }
-  
 
   if (Calls.size() == 0)
     return numUpdates;
 
-  numUpdates += updateGlobalsTouchedByCallee(Callee, Calls, GlobalsAccessed, GlobalModes);
+  numUpdates +=
+      updateGlobalsTouchedByCallee(Callee, Calls, GlobalsAccessed, GlobalModes);
   numUpdates += updateParamsTouchedByCallee(Callee, Calls, ParamModes);
   return numUpdates;
 }
@@ -253,19 +248,20 @@ void DataTracker::printAccessLog() const {
 
     llvm::outs() << Entry.VD->getNameAsString();
     llvm::outs() << " " << Entry.VD->getID();
-    ExtraSpace =  WidthVD - Entry.VD->getNameAsString().size() + 1;
+    ExtraSpace = WidthVD - Entry.VD->getNameAsString().size() + 1;
 
     if (Entry.ArraySubscript) {
       llvm::outs() << "  ";
-      Entry.ArraySubscript->getBase()->printPretty(llvm::outs(), NULL, Context->getLangOpts());
+      Entry.ArraySubscript->getBase()->printPretty(llvm::outs(), NULL,
+                                                   Context->getLangOpts());
       llvm::outs() << "[";
-      Entry.ArraySubscript->getIdx()->printPretty(llvm::outs(), NULL, Context->getLangOpts());
+      Entry.ArraySubscript->getIdx()->printPretty(llvm::outs(), NULL,
+                                                  Context->getLangOpts());
       llvm::outs() << "]";
     }
 
     llvm::outs() << std::string(ExtraSpace + 1, ' ');
-    switch (Entry.Flags & (A_RDWR | A_UNKNOWN))
-    {
+    switch (Entry.Flags & (A_RDWR | A_UNKNOWN)) {
     case A_UNKNOWN:
       llvm::outs() << "Unknown      ";
       break;
@@ -300,8 +296,8 @@ int DataTracker::recordArrayAccess(const ValueDecl *BasePointer,
                                    const ArraySubscriptExpr *Subscript) {
   auto It = std::find_if(AccessLog.begin(), AccessLog.end(),
                          [BasePointer, Subscript](AccessInfo &A) {
-                           return A.VD == BasePointer 
-                                  && A.Loc == Subscript->getBeginLoc();
+                           return A.VD == BasePointer &&
+                                  A.Loc == Subscript->getBeginLoc();
                          });
 
   if (It == AccessLog.end()) {
@@ -309,13 +305,13 @@ int DataTracker::recordArrayAccess(const ValueDecl *BasePointer,
     // Save it so it can be attached when the access is record in the access
     // log.
     LastArrayBasePointer = BasePointer;
-    LastArraySubscript   = Subscript;
+    LastArraySubscript = Subscript;
     return 1;
   }
-  
+
   It->ArraySubscript = Subscript;
   LastArrayBasePointer = nullptr;
-  LastArraySubscript   = nullptr;
+  LastArraySubscript = nullptr;
   return 1;
 }
 
@@ -324,13 +320,13 @@ int DataTracker::recordTargetRegion(Kernel *K) {
   Kernels.push_back(K);
 
   AccessInfo NewEntry = {};
-  NewEntry.VD      = nullptr;
-  NewEntry.S       = K->getDirective();
-  NewEntry.Loc     = K->getBeginLoc();
-  NewEntry.Flags   = A_NOP;
+  NewEntry.VD = nullptr;
+  NewEntry.S = K->getDirective();
+  NewEntry.Loc = K->getBeginLoc();
+  NewEntry.Flags = A_NOP;
   NewEntry.Barrier = ScopeBarrier::KernelBegin;
   insertAccessLogEntry(NewEntry);
-  NewEntry.Loc     = K->getEndLoc();
+  NewEntry.Loc = K->getEndLoc();
   NewEntry.Barrier = ScopeBarrier::KernelEnd;
   insertAccessLogEntry(NewEntry);
   return 1;
@@ -345,13 +341,12 @@ int DataTracker::recordLoop(const Stmt *S) {
   Loops.push_back(S);
 
   AccessInfo NewEntry = {};
-  NewEntry.VD      = nullptr;
-  NewEntry.S       = S;
-  NewEntry.Loc     = S->getBeginLoc();
-  NewEntry.Flags   = A_NOP;
+  NewEntry.VD = nullptr;
+  NewEntry.S = S;
+  NewEntry.Loc = S->getBeginLoc();
+  NewEntry.Flags = A_NOP;
   if (LastKernel != nullptr && LastKernel->contains(S->getBeginLoc()))
     NewEntry.Flags |= A_OFFLD;
-
 
   // Analyze loop bounds. This will be used for array bounds analysis.
   if (isa<ForStmt>(S)) {
@@ -359,19 +354,18 @@ int DataTracker::recordLoop(const Stmt *S) {
 
     const Stmt *Init = FS->getInit();
     const Stmt *Cond = dyn_cast<Stmt>(FS->getCond());
-    const Stmt *Inc  = dyn_cast<Stmt>(FS->getInc());
+    const Stmt *Inc = dyn_cast<Stmt>(FS->getInc());
 
     LoopAccess *LA = new LoopAccess;
-    LA->LitLower  = SIZE_MAX;
-    LA->LitUpper  = SIZE_MAX;
+    LA->LitLower = SIZE_MAX;
+    LA->LitUpper = SIZE_MAX;
     LA->ExprLower = nullptr;
     LA->ExprUpper = nullptr;
-    
-    size_t InitLitBound       = SIZE_MAX;
-    size_t CondLitBound       = SIZE_MAX;
+
+    size_t InitLitBound = SIZE_MAX;
+    size_t CondLitBound = SIZE_MAX;
     const Expr *InitExprBound = nullptr;
     const Expr *CondExprBound = nullptr;
-    
 
     int IncType = 0;
     // Determine indexing variable
@@ -381,7 +375,7 @@ int DataTracker::recordLoop(const Stmt *S) {
         const DeclRefExpr *DRE = getLeftmostDecl(UO);
         LA->IndexDecl = DRE->getDecl();
         IncType = UO->isIncrementOp() - UO->isDecrementOp();
-      } 
+      }
     }
 
     // Determine bound from Init
@@ -397,7 +391,6 @@ int DataTracker::recordLoop(const Stmt *S) {
         }
         if (InitLitBound == SIZE_MAX)
           InitExprBound = VD->getInit();
-          
       }
     } else if (LA->IndexDecl && Init && isa<BinaryOperator>(Init)) {
       const BinaryOperator *BO = dyn_cast<BinaryOperator>(Init);
@@ -485,31 +478,30 @@ int DataTracker::recordLoop(const Stmt *S) {
     }
 
     if (IncType == 1) {
-      LA->LitLower  = InitLitBound;
-      LA->LitUpper  = CondLitBound;
+      LA->LitLower = InitLitBound;
+      LA->LitUpper = CondLitBound;
       LA->ExprLower = InitExprBound;
       LA->ExprUpper = CondExprBound;
     } else if (IncType == -1) {
-      LA->LitLower  = CondLitBound;
-      LA->LitUpper  = InitLitBound;
+      LA->LitLower = CondLitBound;
+      LA->LitUpper = InitLitBound;
       LA->ExprLower = CondExprBound;
       LA->ExprUpper = InitExprBound;
     }
-    
+
     llvm::outs() << LA->LitLower << " " << LA->LitUpper << "\n";
-    if ((LA->LitLower != SIZE_MAX || LA->ExprLower)
-     || (LA->LitUpper != SIZE_MAX || LA->ExprUpper)) {
+    if ((LA->LitLower != SIZE_MAX || LA->ExprLower) ||
+        (LA->LitUpper != SIZE_MAX || LA->ExprUpper)) {
       llvm::outs() << "Committing loop bounds\n";
       NewEntry.LoopBounds = LA;
     } else {
       delete LA;
     }
-
   }
 
   NewEntry.Barrier = ScopeBarrier::LoopBegin;
   insertAccessLogEntry(NewEntry);
-  NewEntry.Loc     = S->getEndLoc();
+  NewEntry.Loc = S->getEndLoc();
   NewEntry.Barrier = ScopeBarrier::LoopEnd;
   insertAccessLogEntry(NewEntry);
 
@@ -527,10 +519,10 @@ int DataTracker::recordCond(const Stmt *S) {
   Conds.push_back(S);
 
   AccessInfo NewEntry = {};
-  NewEntry.VD      = nullptr;
-  NewEntry.S       = S;
-  NewEntry.Loc     = S->getBeginLoc();
-  NewEntry.Flags   = A_NOP;
+  NewEntry.VD = nullptr;
+  NewEntry.S = S;
+  NewEntry.Loc = S->getBeginLoc();
+  NewEntry.Flags = A_NOP;
   NewEntry.Barrier = ScopeBarrier::CondBegin;
   insertAccessLogEntry(NewEntry);
 
@@ -542,13 +534,13 @@ int DataTracker::recordCond(const Stmt *S) {
       if (IF) {
         // offset -1 removes ambiguity of position with beginning of the
         // conditional statement
-        NewEntry.Loc     = Loc;
+        NewEntry.Loc = Loc;
         NewEntry.Barrier = ScopeBarrier::CondCase;
         insertAccessLogEntry(NewEntry);
       } else {
         // offset -1 removes ambiguity of position with beginning of the
         // else statement body
-        NewEntry.Loc     = Loc;
+        NewEntry.Loc = Loc;
         NewEntry.Barrier = ScopeBarrier::CondFallback;
         insertAccessLogEntry(NewEntry);
         break;
@@ -561,8 +553,8 @@ int DataTracker::recordCond(const Stmt *S) {
         NewEntry.Barrier = ScopeBarrier::CondFallback;
       else
         NewEntry.Barrier = ScopeBarrier::CondCase;
-      
-      NewEntry.Loc     = Case->getBeginLoc();
+
+      NewEntry.Loc = Case->getBeginLoc();
       NewEntry.Barrier = ScopeBarrier::CondCase;
       insertAccessLogEntry(NewEntry);
 
@@ -573,7 +565,7 @@ int DataTracker::recordCond(const Stmt *S) {
     llvm::outs() << "Unknown Conditional Type.\n";
   }
 
-  NewEntry.Loc     = S->getEndLoc();
+  NewEntry.Loc = S->getEndLoc();
   NewEntry.Barrier = ScopeBarrier::CondEnd;
   insertAccessLogEntry(NewEntry);
 
@@ -598,19 +590,19 @@ const std::vector<const CallExpr *> &DataTracker::getCallExprs() const {
   return CallExprs;
 }
 
-const std::vector<const Stmt *> &DataTracker::getLoops() const {
-  return Loops;
-}
+const std::vector<const Stmt *> &DataTracker::getLoops() const { return Loops; }
 
 const TargetDataRegion *DataTracker::getTargetDataScope() const {
   return TargetScope;
 }
 
-const boost::container::flat_set<const ValueDecl *> &DataTracker::getLocals() const {
+const boost::container::flat_set<const ValueDecl *> &
+DataTracker::getLocals() const {
   return Locals;
 }
 
-const boost::container::flat_set<const ValueDecl *> &DataTracker::getGlobals() const {
+const boost::container::flat_set<const ValueDecl *> &
+DataTracker::getGlobals() const {
   return Globals;
 }
 
@@ -621,13 +613,15 @@ void DataTracker::classifyOffloadedOps() {
     SourceLocation Lower = K->getBeginLoc();
     SourceLocation Upper = K->getEndLoc();
     auto It = AccessLog.begin();
-    for (; SM.isBeforeInTranslationUnit(It->Loc, Lower) 
-           && It != AccessLog.end()
-         ; ++It) {}
+    for (;
+         SM.isBeforeInTranslationUnit(It->Loc, Lower) && It != AccessLog.end();
+         ++It) {
+    }
     K->AccessLogBegin = It;
-    for (; SM.isBeforeInTranslationUnit(It->Loc, Upper)
-           && It != AccessLog.end()
-         ; ++It) {}
+    for (;
+         SM.isBeforeInTranslationUnit(It->Loc, Upper) && It != AccessLog.end();
+         ++It) {
+    }
     K->AccessLogEnd = It;
 
     for (auto OffIt = K->AccessLogBegin; OffIt != K->AccessLogEnd; ++OffIt) {
@@ -641,38 +635,38 @@ void DataTracker::classifyOffloadedOps() {
 
 class VariableFinder : public RecursiveASTVisitor<VariableFinder> {
 public:
-    // explicit VariableFinder(ASTContext *Context) : Context(Context) {}
+  // explicit VariableFinder(ASTContext *Context) : Context(Context) {}
 
-    bool VisitDeclRefExpr(DeclRefExpr *DRE) {
-        if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-            ReferencedVariables.insert(VD);
-        }
-        return true;
+  bool VisitDeclRefExpr(DeclRefExpr *DRE) {
+    if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+      ReferencedVariables.insert(VD);
     }
+    return true;
+  }
 
-    boost::container::flat_set<const VarDecl *> getReferencedVariables() const {
-        return ReferencedVariables;
-    }
+  boost::container::flat_set<const VarDecl *> getReferencedVariables() const {
+    return ReferencedVariables;
+  }
 
 private:
-    // ASTContext *Context;
-    boost::container::flat_set<const VarDecl *> ReferencedVariables;
+  // ASTContext *Context;
+  boost::container::flat_set<const VarDecl *> ReferencedVariables;
 };
 
 /* Algorithm for determining placement of target update OpenMP directives for
  * array accesses in nested loops nested to arbitrary depth. LoopStack is a
- * stack that contains references to for statements. 
+ * stack that contains references to for statements.
  * The top of the stack corresponds to the for loop that includes array access
- * A in its body, with each subsequent element represents the enclosing loop. 
+ * A in its body, with each subsequent element represents the enclosing loop.
  * insertionLocLim stores a statement which the directive must not proceed,
- * typically this is the end of the preceeding target kernel's scope. 
+ * typically this is the end of the preceeding target kernel's scope.
  * Returns a pointer to the statement the directive should directly
  * proceed or follow.
  */
-const AccessInfo *DataTracker::findOutermostIndexingLoop(std::vector<AccessInfo>::iterator &A,
-                                                         std::vector<const AccessInfo *> &LoopStack,
-                                                         std::vector<AccessInfo>::iterator &insertionLocLim) const
-{
+const AccessInfo *DataTracker::findOutermostIndexingLoop(
+    std::vector<AccessInfo>::iterator &A,
+    std::vector<const AccessInfo *> &LoopStack,
+    std::vector<AccessInfo>::iterator &insertionLocLim) const {
   SourceManager &SM = Context->getSourceManager();
   const Expr *Idx = A->ArraySubscript->getIdx();
   // llvm::outs() << "Found var ArraySubscript ";
@@ -680,18 +674,19 @@ const AccessInfo *DataTracker::findOutermostIndexingLoop(std::vector<AccessInfo>
   // llvm::outs() << "\n";
   VariableFinder Finder;
   Finder.TraverseStmt(const_cast<Expr *>(Idx));
-  boost::container::flat_set<const VarDecl *> IndexingVars = Finder.getReferencedVariables();
+  boost::container::flat_set<const VarDecl *> IndexingVars =
+      Finder.getReferencedVariables();
   // llvm::outs() << "INDEXING VARS:";
   // for (const VarDecl *IndexingVar : IndexingVars) {
-  //   llvm::outs() << " " << IndexingVar->getNameAsString() << ":" << IndexingVar->getID();
+  //   llvm::outs() << " " << IndexingVar->getNameAsString() << ":" <<
+  //   IndexingVar->getID();
   // }
   // llvm::outs() << "\n";
 
   const AccessInfo *OutermostIndexingLoop = nullptr;
-  for (auto Rit = LoopStack.rbegin();
-        Rit != LoopStack.rend();
-        ++Rit) {
-    if (insertionLocLim != AccessLog.end() && SM.isBeforeInTranslationUnit((*Rit)->Loc, insertionLocLim->Loc))
+  for (auto Rit = LoopStack.rbegin(); Rit != LoopStack.rend(); ++Rit) {
+    if (insertionLocLim != AccessLog.end() &&
+        SM.isBeforeInTranslationUnit((*Rit)->Loc, insertionLocLim->Loc))
       break;
     const ValueDecl *IndexValueDecl = (*Rit)->LoopBounds->IndexDecl;
     if (!IndexValueDecl)
@@ -699,14 +694,16 @@ const AccessInfo *DataTracker::findOutermostIndexingLoop(std::vector<AccessInfo>
     const VarDecl *IndexVarDecl = dyn_cast<const VarDecl>(IndexValueDecl);
     if (!IndexVarDecl)
       continue;
-  
+
     // llvm::outs() << "INDEXDECL:";
-    // llvm::outs() << " " << IndexVarDecl->getNameAsString() << ":" << IndexVarDecl->getID() << "\n";
+    // llvm::outs() << " " << IndexVarDecl->getNameAsString() << ":" <<
+    // IndexVarDecl->getID() << "\n";
     if (!IndexingVars.contains(IndexVarDecl))
       continue;
     OutermostIndexingLoop = (*Rit);
     // llvm::outs() << "OutermostIndexingLoop:";
-    // llvm::outs() << " " << OutermostIndexingLoop->Loc.printToString(SM) << "\n";
+    // llvm::outs() << " " << OutermostIndexingLoop->Loc.printToString(SM) <<
+    // "\n";
   }
   return OutermostIndexingLoop;
 }
@@ -743,8 +740,7 @@ void DataTracker::naiveAnalyze() {
     for (auto It = K->AccessLogBegin; It != K->AccessLogEnd; ++It) {
       if (K->isPrivate(It->VD))
         continue;
-      switch (It->Flags & 0b00000111)
-      {
+      switch (It->Flags & 0b00000111) {
       case A_RDONLY:
         // Here we only want to map to if a variable was read before being
         // written to. This is more aggressive for arrays since the whole array
@@ -804,14 +800,14 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   std::stack<CondDependency> CondDependencyStack;
   std::vector<ArrayAccess> ArrayBoundsList;
   std::vector<const AccessInfo *> LoopStack;
-  std::vector<const AccessInfo *> PrevHostLoopStack; 
+  std::vector<const AccessInfo *> PrevHostLoopStack;
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
   bool isPointerType = VD->getType()->isAnyPointerType();
-  bool MapAlloc = !IsArithmeticType;  // arithmetic types can be transferred via
-                                      // kernel parameters (firstprivate). all
-                                      // others should be mapped. we may promote
-                                      // alloc to to/from
+  bool MapAlloc = !IsArithmeticType; // arithmetic types can be transferred via
+                                     // kernel parameters (firstprivate). all
+                                     // others should be mapped. we may promote
+                                     // alloc to to/from
   bool IsGlobal = Globals.contains(VD);
   bool IsParam = false;
   bool IsParamPtrToNonConst = false;
@@ -820,13 +816,13 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     if (VD->getID() == Param->getID()) {
       IsParam = true;
       QualType ParamType = Param->getType();
-      bool IsParamPtr = ParamType->isAnyPointerType()
-                        || ParamType->isReferenceType();
+      bool IsParamPtr =
+          ParamType->isAnyPointerType() || ParamType->isReferenceType();
       IsParamPtrToNonConst = IsParamPtr && !isPtrOrRefToConst(ParamType);
       break;
     }
   }
-  
+
   if (IsGlobal || IsParam) {
     DataInitialized = true;
     DataValidOnHost = true;
@@ -843,21 +839,22 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     // Array Access Determination
     if (It->ArraySubscript) {
       ArrayAccess Bounds;
-      Bounds.Flags = It->Flags; 
+      Bounds.Flags = It->Flags;
       Bounds.LitLower = SIZE_MAX;
-      Bounds.LitUpper = SIZE_MAX;   
+      Bounds.LitUpper = SIZE_MAX;
       const Expr *Idx = It->ArraySubscript->getIdx();
       llvm::outs() << "Found var ArraySubscript ";
       Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
       llvm::outs() << "\n";
       const ImplicitCastExpr *IdxICE = dyn_cast<ImplicitCastExpr>(Idx);
-      const DeclRefExpr *IdxDRE = IdxICE ? 
-          dyn_cast<DeclRefExpr>(*(IdxICE->child_begin())) : nullptr;
+      const DeclRefExpr *IdxDRE =
+          IdxICE ? dyn_cast<DeclRefExpr>(*(IdxICE->child_begin())) : nullptr;
 
       if (IdxDRE) {
         Bounds.VarLower = IdxDRE->getDecl();
         Bounds.VarUpper = Bounds.VarLower;
-        llvm::outs() << "Found var: " << Bounds.VarLower->getNameAsString() << "\n";
+        llvm::outs() << "Found var: " << Bounds.VarLower->getNameAsString()
+                     << "\n";
       } else if (Idx->isEvaluatable(*Context)) {
         Expr::EvalResult Result;
         bool isConstant = Idx->EvaluateAsInt(Result, *Context);
@@ -868,14 +865,14 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       }
       ArrayBoundsList.emplace_back(Bounds);
     }
-    
+
     if (It->Barrier == ScopeBarrier::LoopBegin) {
       if (!(It->Flags & A_OFFLD)) {
         LoopDependency LD;
-        LD.DataValidOnHost   = DataValidOnHost;
+        LD.DataValidOnHost = DataValidOnHost;
         LD.DataValidOnDevice = DataValidOnDevice;
-        LD.MapTo             = MapTo;
-        LD.FirstHostAccess   = nullptr;
+        LD.MapTo = MapTo;
+        LD.FirstHostAccess = nullptr;
         LoopDependencyStack.emplace(LD);
       }
       LoopStack.push_back(&(*It));
@@ -890,8 +887,9 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
           TargetScope->UpdateFrom.emplace_back(FirstAccess);
           DataValidOnHost = true;
         }
-        if ((LD.DataValidOnDevice && !DataValidOnDevice && LD.FirstHostAccess)
-        || (!LD.MapTo && MapTo && !DataValidOnDevice)) {
+        if ((LD.DataValidOnDevice && !DataValidOnDevice &&
+             LD.FirstHostAccess) ||
+            (!LD.MapTo && MapTo && !DataValidOnDevice)) {
           TargetScope->UpdateTo.emplace_back(*PrevHostIt);
           MapTo = LD.MapTo; // restore MapTo to before loop
         }
@@ -901,15 +899,14 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
 
     } else if (It->Barrier == ScopeBarrier::CondBegin) {
       CondDependency CD;
-      CD.Conditional       = *It;
-      CD.Conditional.VD    = VD;
+      CD.Conditional = *It;
+      CD.Conditional.VD = VD;
       CondDependencyStack.emplace(CD);
     } else if (It->Barrier == ScopeBarrier::CondCase) {
     } else if (It->Barrier == ScopeBarrier::CondFallback) {
     } else if (It->Barrier == ScopeBarrier::CondEnd) {
       CondDependencyStack.pop();
 
-      
     } else if (It->Barrier == ScopeBarrier::KernelBegin) {
       if (IsArithmeticType && !DataValidOnDevice) {
         DataFirstPrivate = true;
@@ -920,8 +917,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       if (IsArithmeticType && DataFirstPrivate) {
         // VD was a read-only scalar for this kernel and wasn't present already.
         // Undo data mappings and change to firsrprivate.
-        if (!TargetScope->UpdateTo.empty() 
-         && TargetScope->UpdateTo.back().Loc == PrevHostIt->Loc)
+        if (!TargetScope->UpdateTo.empty() &&
+            TargetScope->UpdateTo.back().Loc == PrevHostIt->Loc)
           TargetScope->UpdateTo.pop_back();
         MapTo = PrevMapTo;
         if (UsedInLastKernel)
@@ -934,8 +931,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
 
     } else if (It->Flags & A_OFFLD) {
       // If not read-only then abandon attempt to classify as firstprivate.
-      DataFirstPrivate &= (It->Flags == (A_RDONLY  | A_OFFLD));
-      
+      DataFirstPrivate &= (It->Flags == (A_RDONLY | A_OFFLD));
+
       if (!DataInitialized) {
         if (It->Flags & A_RDONLY) {
           // Read before write!
@@ -945,32 +942,35 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
               "variable '%0' is uninitialized when used here");
           DiagnosticBuilder DiagBuilder = DiagEngine.Report(It->Loc, DiagID);
           DiagBuilder.AddString(VD->getNameAsString());
-        } else if (//CondDependencyStack.empty()
-               //&& 
-               (   (It->Flags == (A_WRONLY  | A_OFFLD))
-                   || (It->Flags == (A_UNKNOWN | A_OFFLD))
-                  )) { // Write/Unknown
+        } else if ( // CondDependencyStack.empty()
+                    //&&
+            ((It->Flags == (A_WRONLY | A_OFFLD)) ||
+             (It->Flags == (A_UNKNOWN | A_OFFLD)))) { // Write/Unknown
           DataInitialized = true;
         }
       } else if (
           // If data is written to but it is done so in a conditional statement,
-          // copy to target device. 
-          (!CondDependencyStack.empty() && (It->Flags & (A_WRONLY | A_UNKNOWN))) // Write/ReadWrite/Unknown
+          // copy to target device.
+          (!CondDependencyStack.empty() &&
+           (It->Flags & (A_WRONLY | A_UNKNOWN))) // Write/ReadWrite/Unknown
           ||
           // data is read, we need data present, copy to target device
-          (!DataValidOnDevice && (It->Flags & (A_RDONLY | A_UNKNOWN)))) { // Read/ReadWrite/Unknown
+          (!DataValidOnDevice &&
+           (It->Flags & (A_RDONLY | A_UNKNOWN)))) { // Read/ReadWrite/Unknown
         // Data is already initalized, but not on target device
-        if (PrevHostIt == AccessLog.end()
-         || SM.isBeforeInTranslationUnit(PrevHostIt->Loc,
+        if (PrevHostIt == AccessLog.end() ||
+            SM.isBeforeInTranslationUnit(PrevHostIt->Loc,
                                          TargetScope->BeginLoc)) {
           // PrevHostIt == AccessLog.end() indicates the first access of a
           // global or parameter on the target device.
           MapTo = true;
 
         } else if (PrevHostIt->ArraySubscript) {
-          const AccessInfo *OutermostIndexingLoop = findOutermostIndexingLoop(PrevHostIt, PrevHostLoopStack, PrevTgtIt);
+          const AccessInfo *OutermostIndexingLoop = findOutermostIndexingLoop(
+              PrevHostIt, PrevHostLoopStack, PrevTgtIt);
           if (OutermostIndexingLoop) {
-            AccessInfo OutermostIndexingLoopCopy = *OutermostIndexingLoop; // copy
+            AccessInfo OutermostIndexingLoopCopy =
+                *OutermostIndexingLoop; // copy
             OutermostIndexingLoopCopy.VD = PrevHostIt->VD;
             // indicates to the rewriter that this statement should be placed
             // directly after the end of the loop
@@ -980,13 +980,13 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
             // does not depend on loop index.
             TargetScope->UpdateTo.emplace_back(*PrevHostIt);
           }
-          
+
         } else {
           TargetScope->UpdateTo.emplace_back(*PrevHostIt);
         }
         DataValidOnDevice = true;
       }
-      if ((It->Flags & (A_WRONLY | A_UNKNOWN))) {// Write/ReadWrite/Unknown
+      if ((It->Flags & (A_WRONLY | A_UNKNOWN))) { // Write/ReadWrite/Unknown
         DataValidOnDevice = true;
         DataValidOnHost = false;
         // a single write on the target guarantees we need to at allocate space
@@ -999,19 +999,22 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     } else {
       // check access on host
       if (!DataInitialized) {
-        if (It->Loc == It->VD->getLocation()
-         && !SM.isBeforeInTranslationUnit(It->Loc, TargetScope->BeginLoc)) {
+        if (It->Loc == It->VD->getLocation() &&
+            !SM.isBeforeInTranslationUnit(It->Loc, TargetScope->BeginLoc)) {
           // Data needs to be declared before the target scope in which it is
           // used.
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
           const unsigned int DiagID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Error,
-              "declaration of '%0' is captured within a target data region in which it is being utilized");
-           const unsigned int NoteID = DiagEngine.getCustomDiagID(
+              "declaration of '%0' is captured within a target data region in "
+              "which it is being utilized");
+          const unsigned int NoteID = DiagEngine.getCustomDiagID(
               DiagnosticsEngine::Note,
-              "declaration of '%0' was anticipated to precede the beginning of the target data region at this location");
+              "declaration of '%0' was anticipated to precede the beginning of "
+              "the target data region at this location");
           DiagEngine.Report(It->Loc, DiagID) << VD->getNameAsString();
-          DiagEngine.Report(TargetScope->BeginLoc, NoteID) << VD->getNameAsString();
+          DiagEngine.Report(TargetScope->BeginLoc, NoteID)
+              << VD->getNameAsString();
         }
         if (It->Flags & A_RDONLY) {
           // Read before write!
@@ -1020,31 +1023,33 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
               DiagnosticsEngine::Warning,
               "variable '%0' is uninitialized when used here");
           DiagEngine.Report(It->Loc, DiagID) << VD->getNameAsString();
-        }
-        else if ((It->Flags == A_WRONLY)
-              || (It->Flags == A_UNKNOWN)) { // Write/Unknown
+        } else if ((It->Flags == A_WRONLY) ||
+                   (It->Flags == A_UNKNOWN)) { // Write/Unknown
           DataInitialized = true;
         }
-      }
-      else if (!DataValidOnHost && (It->Flags & (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
+      } else if (!DataValidOnHost &&
+                 (It->Flags &
+                  (A_RDONLY | A_UNKNOWN))) { // Read/ReadWrite/Unknown
         if (SM.isBeforeInTranslationUnit(TargetScope->EndLoc, It->Loc)) {
           MapFrom = true;
         } else if (It->ArraySubscript) {
-          const AccessInfo *OutermostIndexingLoop = findOutermostIndexingLoop(It, LoopStack, PrevTgtIt);
+          const AccessInfo *OutermostIndexingLoop =
+              findOutermostIndexingLoop(It, LoopStack, PrevTgtIt);
           if (OutermostIndexingLoop) {
-            AccessInfo OutermostIndexingLoopCopy = *OutermostIndexingLoop; // copy
+            AccessInfo OutermostIndexingLoopCopy =
+                *OutermostIndexingLoop; // copy
             OutermostIndexingLoopCopy.VD = It->VD;
             TargetScope->UpdateFrom.emplace_back(OutermostIndexingLoopCopy);
           } else {
             // does not depend on loop index.
             if (!CondDependencyStack.empty()) {
-            TargetScope->UpdateFrom.emplace_back(
-                CondDependencyStack.top().Conditional);
+              TargetScope->UpdateFrom.emplace_back(
+                  CondDependencyStack.top().Conditional);
             } else {
               TargetScope->UpdateFrom.emplace_back(*It);
             }
           }
-          
+
         } else if (!CondDependencyStack.empty()) {
           TargetScope->UpdateFrom.emplace_back(
               CondDependencyStack.top().Conditional);
@@ -1057,8 +1062,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
         DataValidOnDevice = false;
         DataValidOnHost = true;
       }
-      if (!LoopDependencyStack.empty()
-       && LoopDependencyStack.top().FirstHostAccess == nullptr) {
+      if (!LoopDependencyStack.empty() &&
+          LoopDependencyStack.top().FirstHostAccess == nullptr) {
         LoopDependencyStack.top().FirstHostAccess = &(*It);
       }
       PrevHostIt = It;
@@ -1070,7 +1075,8 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     It = std::find_if(It, AccessLog.end(), DataFlowOf(VD));
   } // end while
 
-  //if ( (VD is a (non const point parameter of the function) || VD is a (global)) && !dataLastOnHost)
+  // if ( (VD is a (non const point parameter of the function) || VD is a
+  // (global)) && !dataLastOnHost)
   if ((IsGlobal || IsParamPtrToNonConst) && !DataValidOnHost) {
     MapFrom = true;
     DataValidOnHost = true;
@@ -1097,9 +1103,9 @@ void DataTracker::analyze() {
     if (Access.Flags & A_OFFLD) {
       if (!firstOffload) {
         firstOffload = &Access;
-        lastOffload  = &Access;
+        lastOffload = &Access;
       } else {
-        lastOffload  = &Access;
+        lastOffload = &Access;
       }
     }
   }
@@ -1110,8 +1116,10 @@ void DataTracker::analyze() {
 
   classifyOffloadedOps();
 
-  const Stmt *FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), firstOffload->S);
-  const Stmt *BackCapturingStmt = findOutermostCapturingStmt(FD->getBody(), lastOffload->S);
+  const Stmt *FrontCapturingStmt =
+      findOutermostCapturingStmt(FD->getBody(), firstOffload->S);
+  const Stmt *BackCapturingStmt =
+      findOutermostCapturingStmt(FD->getBody(), lastOffload->S);
   SourceLocation ScopeBegin;
   SourceLocation ScopeEnd;
   if (FrontCapturingStmt) {
@@ -1120,8 +1128,8 @@ void DataTracker::analyze() {
                  << ScopeBegin.printToString(Context->getSourceManager())
                  << " in " << FD->getNameAsString() << "\n";
   } else {
-    llvm::outs() << "FrontCapturingStmt null in "
-                 << FD->getNameAsString() << "\n";
+    llvm::outs() << "FrontCapturingStmt null in " << FD->getNameAsString()
+                 << "\n";
   }
   if (BackCapturingStmt) {
     ScopeEnd = BackCapturingStmt->getEndLoc();
@@ -1129,34 +1137,40 @@ void DataTracker::analyze() {
                  << ScopeEnd.printToString(Context->getSourceManager())
                  << " in " << FD->getNameAsString() << "\n";
   } else {
-    llvm::outs() << "BackCapturingStmt null in "
-                 << FD->getNameAsString() << "\n";
+    llvm::outs() << "BackCapturingStmt null in " << FD->getNameAsString()
+                 << "\n";
   }
 
   if (Kernels.size() > 0) {
     // Identify the root(outermost) target scope in the function.
-    FrontCapturingStmt = findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
+    FrontCapturingStmt =
+        findOutermostCapturingStmt(FD->getBody(), Kernels[0]->getDirective());
     SourceLocation KernelScopeBegin = FrontCapturingStmt->getBeginLoc();
-    BackCapturingStmt  = findOutermostCapturingStmt(FD->getBody(), Kernels.back()->getDirective());
+    BackCapturingStmt = findOutermostCapturingStmt(
+        FD->getBody(), Kernels.back()->getDirective());
     SourceLocation KernelScopeEnd = BackCapturingStmt->getEndLoc();
-    if (auto OpenMPDirective = dyn_cast<OMPExecutableDirective>(BackCapturingStmt)) {
+    if (auto OpenMPDirective =
+            dyn_cast<OMPExecutableDirective>(BackCapturingStmt)) {
       // ugh. The getEndLoc() of OpenMP directives is different and doesn't
       // consider the captured statement while seemingly every other statement
       // does.
       KernelScopeEnd = OpenMPDirective->getInnermostCapturedStmt()->getEndLoc();
     }
     SourceManager &SM = Context->getSourceManager();
-    if (ScopeBegin.isInvalid() || SM.isBeforeInTranslationUnit(KernelScopeBegin, ScopeBegin)) {
+    if (ScopeBegin.isInvalid() ||
+        SM.isBeforeInTranslationUnit(KernelScopeBegin, ScopeBegin)) {
       ScopeBegin = KernelScopeBegin;
     }
-    if (ScopeEnd.isInvalid() ||SM.isBeforeInTranslationUnit(ScopeEnd, KernelScopeEnd)) {
+    if (ScopeEnd.isInvalid() ||
+        SM.isBeforeInTranslationUnit(ScopeEnd, KernelScopeEnd)) {
       ScopeEnd = KernelScopeEnd;
     }
   }
 
   if (ScopeBegin.isInvalid() || ScopeEnd.isInvalid()) {
-    llvm::outs() << "error: Data mapping scope could not be determined for function "
-                 << FD->getNameAsString() << "\n";
+    llvm::outs()
+        << "error: Data mapping scope could not be determined for function "
+        << FD->getNameAsString() << "\n";
     return;
   }
 
@@ -1169,8 +1183,7 @@ void DataTracker::analyze() {
   // Map a list of all the data the TargetScope will be responsible for.
   boost::container::flat_set<const ValueDecl *> TargetScopeDecls;
   for (auto It = AccessLog.begin(); It != AccessLog.end(); ++It) {
-    if (It->Flags & A_OFFLD
-     && It->Barrier == ScopeBarrier::None)
+    if (It->Flags & A_OFFLD && It->Barrier == ScopeBarrier::None)
       TargetScopeDecls.insert(It->VD);
   }
 

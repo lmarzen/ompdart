@@ -1,13 +1,13 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
 
-#include "RoseASTConsumer.h"
+#include "OmpDartASTConsumer.h"
 
-class RoseASTAction : public PluginASTAction {
+class OmpDartASTAction : public PluginASTAction {
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
-    return std::make_unique<RoseASTConsumer>(&CI);
+    return std::make_unique<OmpDartASTConsumer>(&CI);
   }
 
   bool ParseArgs(const CompilerInstance &CI,
@@ -19,7 +19,7 @@ protected:
     return;
   }
 
-}; // end class RoseASTAction
+}; // end class OmpDartASTAction
 
-static FrontendPluginRegistry::Add<RoseASTAction>
-X("-rose", "target data analysis");
+static FrontendPluginRegistry::Add<OmpDartASTAction>
+X("-ompdart", "target data analysis");

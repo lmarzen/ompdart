@@ -28,7 +28,8 @@ private:
   friend class DataTracker;
 
 public:
-  TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc, const FunctionDecl *FD);
+  TargetDataRegion(SourceLocation BeginLoc, SourceLocation EndLoc,
+                   const FunctionDecl *FD);
 
   SourceLocation getBeginLoc() const;
   SourceLocation getEndLoc() const;

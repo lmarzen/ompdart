@@ -11,8 +11,7 @@ struct UpdateDirInfo {
   const Stmt *FullStmt;
   boost::container::flat_set<const ValueDecl *> Decls;
 
-  UpdateDirInfo(const Stmt *FullStmt)
-      : FullStmt(FullStmt) {}
+  UpdateDirInfo(const Stmt *FullStmt) : FullStmt(FullStmt) {}
 };
 
 struct ClauseDirInfo {
@@ -57,14 +56,13 @@ const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
 /* Returns the SourceLocation immediately after a Semi-Terminated Stmt (or
  * closing bracket).
  */
-SourceLocation getSemiTerminatedStmtEndLoc(SourceManager &SourceMgr, const Stmt *S) {
+SourceLocation getSemiTerminatedStmtEndLoc(SourceManager &SourceMgr,
+                                           const Stmt *S) {
   SourceLocation Loc = S->getEndLoc();
   const char *Source = SourceMgr.getCharacterData(Loc);
   unsigned int Offset = 1;
   int OpenBrackets = 1;
-  while (*Source != '\0'
-      && *Source != ';'
-      && OpenBrackets != 0) {
+  while (*Source != '\0' && *Source != ';' && OpenBrackets != 0) {
     if (*Source == '{')
       ++OpenBrackets;
     if (*Source == '}')
@@ -79,10 +77,8 @@ SourceLocation getSemiTerminatedStmtEndLoc(SourceManager &SourceMgr, const Stmt 
   return Loc.getLocWithOffset(Offset);
 }
 
-bool isIndentChar(char C)
-{
-  switch (C)
-  {
+bool isIndentChar(char C) {
+  switch (C) {
   case ' ':
   case '\t':
     return true;
@@ -93,8 +89,7 @@ bool isIndentChar(char C)
 
 /* Returns the indentation of the line of the given SourceLocation.
  */
-std::string getIndentation(SourceManager &SourceMgr, SourceLocation Loc)
-{
+std::string getIndentation(SourceManager &SourceMgr, SourceLocation Loc) {
   std::string Indent;
 
   FileID FID = SourceMgr.getFileID(Loc);
@@ -114,7 +109,8 @@ std::string getIndentation(SourceManager &SourceMgr, SourceLocation Loc)
 
 /* Returns the whitespace representing a single level of indentation.
  */
-std::string getBodyIndentation(SourceManager &SourceMgr, const CompoundStmt *Body) {
+std::string getBodyIndentation(SourceManager &SourceMgr,
+                               const CompoundStmt *Body) {
   SourceLocation BeginLoc = Body->getBeginLoc().getLocWithOffset(1);
   const char *Source = SourceMgr.getCharacterData(BeginLoc);
   SourceLocation EndLoc = Body->getEndLoc();
@@ -138,8 +134,8 @@ std::string getBodyIndentation(SourceManager &SourceMgr, const CompoundStmt *Bod
 
 /* Returns the whitespace representing a single level of indentation.
  */
-std::string getIndentationStep(SourceManager &SourceMgr, const FunctionDecl *FD)
-{
+std::string getIndentationStep(SourceManager &SourceMgr,
+                               const FunctionDecl *FD) {
   std::string ParentIndent = getIndentation(SourceMgr, FD->getBeginLoc());
   const CompoundStmt *Body = dyn_cast<CompoundStmt>(FD->getBody());
   if (!Body)
@@ -150,8 +146,7 @@ std::string getIndentationStep(SourceManager &SourceMgr, const FunctionDecl *FD)
   return BodyIndent.substr(ParentIndent.length());
 }
 
-void increaseIndentation(Rewriter &R,
-                         const TargetDataRegion *Data,
+void increaseIndentation(Rewriter &R, const TargetDataRegion *Data,
                          const std::string &IndentStep) {
   SourceManager &SM = R.getSourceMgr();
 
@@ -164,19 +159,18 @@ void increaseIndentation(Rewriter &R,
     SourceLocation InsertLoc = SM.translateLineCol(FID, Ln, 1);
     R.InsertTextBefore(InsertLoc, IndentStep);
   }
-  
+
   return;
 }
 
-void rewriteDataMap(Rewriter &R,
-                    ASTContext &Context,
+void rewriteDataMap(Rewriter &R, ASTContext &Context,
                     const TargetDataRegion *Data,
                     const std::string &IndentStep) {
   SourceManager &SM = R.getSourceMgr();
 
   std::string MapDirective;
-  if (Data->getKernels().size() != 1 
-   || Data->getKernels().front()->getBeginLoc() != Data->getBeginLoc()) {
+  if (Data->getKernels().size() != 1 ||
+      Data->getKernels().front()->getBeginLoc() != Data->getBeginLoc()) {
     // create a new directive rather than add to an existing one
     MapDirective = "#pragma omp target data";
   }
@@ -237,8 +231,7 @@ void rewriteDataMap(Rewriter &R,
   return;
 }
 
-void rewriteUpdateTo(Rewriter &R,
-                     ASTContext &Context,
+void rewriteUpdateTo(Rewriter &R, ASTContext &Context,
                      const TargetDataRegion *Data,
                      const std::string &IndentStep) {
   if (Data->getUpdateTo().empty())
@@ -257,12 +250,11 @@ void rewriteUpdateTo(Rewriter &R,
         FullStmt = WS->getBody();
       else if (const DoStmt *DS = dyn_cast<DoStmt>(FullStmt))
         FullStmt = DS->getBody();
-    }    
+    }
 
-    auto It = std::find_if(UpdateToList.begin(), UpdateToList.end(),
-                           [FullStmt](UpdateDirInfo &U) {
-                             return U.FullStmt == FullStmt;
-                           });
+    auto It = std::find_if(
+        UpdateToList.begin(), UpdateToList.end(),
+        [FullStmt](UpdateDirInfo &U) { return U.FullStmt == FullStmt; });
     if (It == UpdateToList.end()) {
       UpdateToList.emplace_back(UpdateDirInfo(FullStmt));
       It = --(UpdateToList.end());
@@ -273,7 +265,8 @@ void rewriteUpdateTo(Rewriter &R,
   for (const UpdateDirInfo &Update : UpdateToList) {
     SourceLocation InsertLoc;
     std::string UpdateToDirective;
-    std::string ParentIndent = getIndentation(SM, Update.FullStmt->getBeginLoc());
+    std::string ParentIndent =
+        getIndentation(SM, Update.FullStmt->getBeginLoc());
     if (const CompoundStmt *Body = dyn_cast<CompoundStmt>(Update.FullStmt)) {
       // Inserting at the top of a loop body.
       InsertLoc = Body->getBeginLoc().getLocWithOffset(1);
@@ -291,7 +284,7 @@ void rewriteUpdateTo(Rewriter &R,
       // line as the opening bracket.
       const char *Source = SM.getCharacterData(InsertLoc);
       SourceLocation EndLoc = Body->getEndLoc().getLocWithOffset(1);
-      const char *End =  SM.getCharacterData(EndLoc);
+      const char *End = SM.getCharacterData(EndLoc);
       unsigned int TrailingWhitespace = 0;
       while (Source != End && *Source != '\n') {
         if (!isspace(*Source)) {
@@ -308,9 +301,12 @@ void rewriteUpdateTo(Rewriter &R,
       InsertLoc = getSemiTerminatedStmtEndLoc(SM, Update.FullStmt);
 
       llvm::outs() << "Update.FullStmt...";
-      Update.FullStmt->printPretty(llvm::outs(), nullptr, PrintingPolicy(LangOptions()));
+      Update.FullStmt->printPretty(llvm::outs(), nullptr,
+                                   PrintingPolicy(LangOptions()));
       llvm::outs() << "end\n";
-      llvm::outs() << "InsertLoc..." << InsertLoc.printToString(Context.getSourceManager()) << "\n";
+      llvm::outs() << "InsertLoc..."
+                   << InsertLoc.printToString(Context.getSourceManager())
+                   << "\n";
 
       UpdateToDirective = "\n";
       UpdateToDirective += ParentIndent + IndentStep;
@@ -344,8 +340,7 @@ void rewriteUpdateTo(Rewriter &R,
   return;
 }
 
-void rewriteUpdateFrom(Rewriter &R,
-                       ASTContext &Context,
+void rewriteUpdateFrom(Rewriter &R, ASTContext &Context,
                        const TargetDataRegion *Data,
                        const std::string &IndentStep) {
   if (Data->getUpdateFrom().empty())
@@ -368,10 +363,9 @@ void rewriteUpdateFrom(Rewriter &R,
     if (const DoStmt *DS = dyn_cast<DoStmt>(FullStmt))
       FullStmt = DS->getBody();
 
-    auto It = std::find_if(UpdateFromList.begin(), UpdateFromList.end(),
-                           [FullStmt](UpdateDirInfo &U) {
-                             return U.FullStmt == FullStmt;
-                           });
+    auto It = std::find_if(
+        UpdateFromList.begin(), UpdateFromList.end(),
+        [FullStmt](UpdateDirInfo &U) { return U.FullStmt == FullStmt; });
     if (It == UpdateFromList.end()) {
       UpdateFromList.emplace_back(UpdateDirInfo(FullStmt));
       It = --(UpdateFromList.end());
@@ -382,23 +376,25 @@ void rewriteUpdateFrom(Rewriter &R,
   for (const UpdateDirInfo &Update : UpdateFromList) {
     SourceLocation InsertLoc;
     std::string UpdateFromDirective;
-    std::string ParentIndent = getIndentation(SM, Update.FullStmt->getBeginLoc());
+    std::string ParentIndent =
+        getIndentation(SM, Update.FullStmt->getBeginLoc());
     if (const CompoundStmt *Body = dyn_cast<CompoundStmt>(Update.FullStmt)) {
       // Inserting at the end of a loop body.
-      
+
       std::string BodyIndent = getBodyIndentation(SM, Body);
       // Insert a leading newline if there is text preceeding and on the same
       // line as the closing bracket.
       SourceLocation BeginLoc = Body->getBeginLoc();
       const char *Begin = SM.getCharacterData(BeginLoc);
       SourceLocation EndLoc = Body->getEndLoc().getLocWithOffset(-1);
-      const char *Source =  SM.getCharacterData(EndLoc);
+      const char *Source = SM.getCharacterData(EndLoc);
       unsigned int LeadingWhitespace = 0;
       while (Source != Begin - sizeof(char) && *Source != '\n') {
         if (!isspace(*Source)) {
           UpdateFromDirective += "\n";
           UpdateFromDirective += ParentIndent;
-          R.RemoveText(EndLoc.getLocWithOffset(0 - LeadingWhitespace), LeadingWhitespace);
+          R.RemoveText(EndLoc.getLocWithOffset(0 - LeadingWhitespace),
+                       LeadingWhitespace);
           break;
         }
         ++LeadingWhitespace;
@@ -421,20 +417,22 @@ void rewriteUpdateFrom(Rewriter &R,
       InsertLoc = Body->getEndLoc();
     } else {
       // Inserting before a semi-terminated statement.
-      
+
       // Insert a leading newline if there is text preceeding and on the same
       // line as the stmt.
       FileID FID = SM.getFileID(Update.FullStmt->getBeginLoc());
       SourceLocation FileBeginLoc = SM.getLocForStartOfFile(FID);
       const char *FileBegin = SM.getCharacterData(FileBeginLoc);
-      SourceLocation EndLoc = Update.FullStmt->getBeginLoc().getLocWithOffset(-1);
-      const char *Source =  SM.getCharacterData(EndLoc);
+      SourceLocation EndLoc =
+          Update.FullStmt->getBeginLoc().getLocWithOffset(-1);
+      const char *Source = SM.getCharacterData(EndLoc);
       unsigned int LeadingWhitespace = 0;
       while (Source != FileBegin - sizeof(char) && *Source != '\n') {
         if (!isspace(*Source)) {
           UpdateFromDirective += "\n";
           UpdateFromDirective += ParentIndent + IndentStep;
-          R.RemoveText(EndLoc.getLocWithOffset(1 - LeadingWhitespace), LeadingWhitespace);
+          R.RemoveText(EndLoc.getLocWithOffset(1 - LeadingWhitespace),
+                       LeadingWhitespace);
           break;
         }
         ++LeadingWhitespace;
@@ -458,8 +456,7 @@ void rewriteUpdateFrom(Rewriter &R,
   return;
 }
 
-void rewriteClauses(Rewriter &R,
-                    ASTContext &Context,
+void rewriteClauses(Rewriter &R, ASTContext &Context,
                     const TargetDataRegion *Data) {
   if (Data->getFirstPrivate().empty())
     return;
@@ -468,10 +465,9 @@ void rewriteClauses(Rewriter &R,
   std::vector<ClauseDirInfo> DirectiveList;
   for (const ClauseInfo &Clause : Data->getFirstPrivate()) {
     const OMPExecutableDirective *Directive = Clause.Directive;
-    auto It = std::find_if(DirectiveList.begin(), DirectiveList.end(),
-                           [Directive](ClauseDirInfo &C) {
-                             return C.Directive == Directive;
-                           });
+    auto It = std::find_if(
+        DirectiveList.begin(), DirectiveList.end(),
+        [Directive](ClauseDirInfo &C) { return C.Directive == Directive; });
     if (It == DirectiveList.end()) {
       DirectiveList.emplace_back(ClauseDirInfo(Directive));
       It = --(DirectiveList.end());
@@ -479,7 +475,7 @@ void rewriteClauses(Rewriter &R,
     It->FirstPrivateDecls.insert(Clause.VD);
   }
 
-  for (ClauseDirInfo &Directive: DirectiveList) {
+  for (ClauseDirInfo &Directive : DirectiveList) {
     std::string Clauses;
     if (!Directive.FirstPrivateDecls.empty()) {
       Clauses += " firstprivate(";
@@ -490,22 +486,21 @@ void rewriteClauses(Rewriter &R,
     }
     R.InsertTextBefore(Directive.Directive->getEndLoc(), Clauses);
   }
-  
+
   return;
 }
 
-void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataRegion *Data) {
+void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context,
+                             const TargetDataRegion *Data) {
   rewriteClauses(R, Context, Data);
 
-  if (Data->getMapAlloc().empty()
-   && Data->getMapTo().empty()
-   && Data->getMapFrom().empty()
-   && Data->getMapToFrom().empty())
+  if (Data->getMapAlloc().empty() && Data->getMapTo().empty() &&
+      Data->getMapFrom().empty() && Data->getMapToFrom().empty())
     return;
 
   SourceManager &SM = R.getSourceMgr();
   const FunctionDecl *FD = Data->getContainingFunction();
-  std::string IndentStep = getIndentationStep(SM, FD);    
+  std::string IndentStep = getIndentationStep(SM, FD);
 
   rewriteDataMap(R, Context, Data, IndentStep);
 
@@ -514,4 +509,3 @@ void rewriteTargetDataRegion(Rewriter &R, ASTContext &Context, const TargetDataR
 
   return;
 }
-

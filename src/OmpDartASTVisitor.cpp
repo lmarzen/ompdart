@@ -1,4 +1,4 @@
-#include "RoseASTVisitor.h"
+#include "OmpDartASTVisitor.h"
 
 #include "clang/AST/ParentMapContext.h"
 
@@ -6,41 +6,37 @@
 
 using namespace clang;
 
-RoseASTVisitor::RoseASTVisitor(CompilerInstance *CI)
-    : Context(&(CI->getASTContext())),
-      SM(&(Context->getSourceManager())) {
+OmpDartASTVisitor::OmpDartASTVisitor(CompilerInstance *CI)
+    : Context(&(CI->getASTContext())), SM(&(Context->getSourceManager())) {
   LastKernel = NULL;
   LastFunction = NULL;
 }
 
-bool RoseASTVisitor::inLastTargetRegion(SourceLocation Loc) {
+bool OmpDartASTVisitor::inLastTargetRegion(SourceLocation Loc) {
   if (!LastKernel)
     return false;
   return LastKernel->contains(Loc);
 }
 
-bool RoseASTVisitor::inLastFunction(SourceLocation Loc) {
+bool OmpDartASTVisitor::inLastFunction(SourceLocation Loc) {
   if (!LastFunction)
     return false;
   return LastFunction->contains(Loc);
 }
 
-std::vector<DataTracker *> &RoseASTVisitor::getFunctionTrackers() {
+std::vector<DataTracker *> &OmpDartASTVisitor::getFunctionTrackers() {
   return FunctionTrackers;
 }
 
-std::vector<Kernel *> &RoseASTVisitor::getTargetRegions() {
-  return Kernels;
-}
+std::vector<Kernel *> &OmpDartASTVisitor::getTargetRegions() { return Kernels; }
 
-bool RoseASTVisitor::VisitStmt(Stmt *S) {
+bool OmpDartASTVisitor::VisitStmt(Stmt *S) {
   LastStmt = S;
   return true;
 }
 
-bool RoseASTVisitor::VisitFunctionDecl(FunctionDecl *FD) {
-  if (!FD->getBeginLoc().isValid()
-    || !SM->isInMainFile(FD->getLocation()))
+bool OmpDartASTVisitor::VisitFunctionDecl(FunctionDecl *FD) {
+  if (!FD->getBeginLoc().isValid() || !SM->isInMainFile(FD->getLocation()))
     return true;
   if (!FD->doesThisDeclarationHaveABody())
     return true;
@@ -51,9 +47,8 @@ bool RoseASTVisitor::VisitFunctionDecl(FunctionDecl *FD) {
   return true;
 }
 
-bool RoseASTVisitor::VisitVarDecl(VarDecl *VD) {
-  if (!VD->getLocation().isValid()
-    || !SM->isInMainFile(VD->getLocation()))
+bool OmpDartASTVisitor::VisitVarDecl(VarDecl *VD) {
+  if (!VD->getLocation().isValid() || !SM->isInMainFile(VD->getLocation()))
     return true;
   if (inLastTargetRegion(VD->getLocation())) {
     LastKernel->recordPrivate(VD);
@@ -70,16 +65,15 @@ bool RoseASTVisitor::VisitVarDecl(VarDecl *VD) {
   return true;
 }
 
-bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
-  if (!CE->getBeginLoc().isValid()
-    || !SM->isInMainFile(CE->getBeginLoc()))
+bool OmpDartASTVisitor::VisitCallExpr(CallExpr *CE) {
+  if (!CE->getBeginLoc().isValid() || !SM->isInMainFile(CE->getBeginLoc()))
     return true;
   if (!inLastFunction(CE->getBeginLoc()))
     return true;
   FunctionDecl *Callee = CE->getDirectCallee();
   if (!Callee)
     return true;
-  
+
   LastFunction->recordCallExpr(CE);
   Expr **Args = CE->getArgs();
 
@@ -97,8 +91,8 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
 
     ValueDecl *VD = DRE->getDecl();
     uint8_t AccessType;
-    if ( (ParamType->isPointerType() || ParamType->isReferenceType() )
-      && !isPtrOrRefToConst(ParamType)) {
+    if ((ParamType->isPointerType() || ParamType->isReferenceType()) &&
+        !isPtrOrRefToConst(ParamType)) {
       // passed by pointer/reference (to non-const)
       AccessType = A_UNKNOWN;
     } else {
@@ -116,9 +110,8 @@ bool RoseASTVisitor::VisitCallExpr(CallExpr *CE) {
   return true;
 }
 
-bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
-  if (!BO->getBeginLoc().isValid()
-    || !SM->isInMainFile(BO->getBeginLoc()))
+bool OmpDartASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
+  if (!BO->getBeginLoc().isValid() || !SM->isInMainFile(BO->getBeginLoc()))
     return true;
   if (!BO->isAssignmentOp())
     return true;
@@ -143,9 +136,8 @@ bool RoseASTVisitor::VisitBinaryOperator(BinaryOperator *BO) {
   return true;
 }
 
-bool RoseASTVisitor::VisitUnaryOperator(UnaryOperator *UO) {
-  if (!UO->getBeginLoc().isValid()
-    || !SM->isInMainFile(UO->getBeginLoc()))
+bool OmpDartASTVisitor::VisitUnaryOperator(UnaryOperator *UO) {
+  if (!UO->getBeginLoc().isValid() || !SM->isInMainFile(UO->getBeginLoc()))
     return true;
   if (!(UO->isPostfix() || UO->isPrefix()))
     return true;
@@ -159,9 +151,8 @@ bool RoseASTVisitor::VisitUnaryOperator(UnaryOperator *UO) {
   return true;
 }
 
-bool RoseASTVisitor::VisitDeclRefExpr(DeclRefExpr *DRE) {
-  if (!DRE->getBeginLoc().isValid()
-    || !SM->isInMainFile(DRE->getBeginLoc()))
+bool OmpDartASTVisitor::VisitDeclRefExpr(DeclRefExpr *DRE) {
+  if (!DRE->getBeginLoc().isValid() || !SM->isInMainFile(DRE->getBeginLoc()))
     return true;
   if (!inLastFunction(DRE->getBeginLoc()))
     return true;
@@ -175,21 +166,19 @@ bool RoseASTVisitor::VisitDeclRefExpr(DeclRefExpr *DRE) {
   return true;
 }
 
-bool RoseASTVisitor::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
-  if (!ASE->getBeginLoc().isValid()
-    || !SM->isInMainFile(ASE->getBeginLoc()))
+bool OmpDartASTVisitor::VisitArraySubscriptExpr(ArraySubscriptExpr *ASE) {
+  if (!ASE->getBeginLoc().isValid() || !SM->isInMainFile(ASE->getBeginLoc()))
     return true;
   if (!inLastFunction(ASE->getBeginLoc()))
     return true;
-  
+
   const ValueDecl *BasePointer = getLeftmostDecl(ASE)->getDecl();
   LastFunction->recordArrayAccess(BasePointer, ASE);
   return true;
 }
 
-bool RoseASTVisitor::VisitDoStmt(DoStmt *DS) {
-  if (!DS->getBeginLoc().isValid()
-    || !SM->isInMainFile(DS->getBeginLoc()))
+bool OmpDartASTVisitor::VisitDoStmt(DoStmt *DS) {
+  if (!DS->getBeginLoc().isValid() || !SM->isInMainFile(DS->getBeginLoc()))
     return true;
   if (!inLastFunction(DS->getBeginLoc()))
     return true;
@@ -198,9 +187,8 @@ bool RoseASTVisitor::VisitDoStmt(DoStmt *DS) {
   return true;
 }
 
-bool RoseASTVisitor::VisitForStmt(ForStmt *FS) {
-  if (!FS->getBeginLoc().isValid()
-    || !SM->isInMainFile(FS->getBeginLoc()))
+bool OmpDartASTVisitor::VisitForStmt(ForStmt *FS) {
+  if (!FS->getBeginLoc().isValid() || !SM->isInMainFile(FS->getBeginLoc()))
     return true;
   if (!inLastFunction(FS->getBeginLoc()))
     return true;
@@ -209,9 +197,8 @@ bool RoseASTVisitor::VisitForStmt(ForStmt *FS) {
   return true;
 }
 
-bool RoseASTVisitor::VisitWhileStmt(WhileStmt *WS) {
-  if (!WS->getBeginLoc().isValid()
-    || !SM->isInMainFile(WS->getBeginLoc()))
+bool OmpDartASTVisitor::VisitWhileStmt(WhileStmt *WS) {
+  if (!WS->getBeginLoc().isValid() || !SM->isInMainFile(WS->getBeginLoc()))
     return true;
   if (!inLastFunction(WS->getBeginLoc()))
     return true;
@@ -220,9 +207,8 @@ bool RoseASTVisitor::VisitWhileStmt(WhileStmt *WS) {
   return true;
 }
 
-bool RoseASTVisitor::VisitIfStmt(IfStmt *IS) {
-  if (!IS->getBeginLoc().isValid()
-    || !SM->isInMainFile(IS->getBeginLoc()))
+bool OmpDartASTVisitor::VisitIfStmt(IfStmt *IS) {
+  if (!IS->getBeginLoc().isValid() || !SM->isInMainFile(IS->getBeginLoc()))
     return true;
   if (!inLastFunction(IS->getBeginLoc()))
     return true;
@@ -231,9 +217,8 @@ bool RoseASTVisitor::VisitIfStmt(IfStmt *IS) {
   return true;
 }
 
-bool RoseASTVisitor::VisitSwitchStmt(SwitchStmt *SS) {
-  if (!SS->getBeginLoc().isValid()
-    || !SM->isInMainFile(SS->getBeginLoc()))
+bool OmpDartASTVisitor::VisitSwitchStmt(SwitchStmt *SS) {
+  if (!SS->getBeginLoc().isValid() || !SM->isInMainFile(SS->getBeginLoc()))
     return true;
   if (!inLastFunction(SS->getBeginLoc()))
     return true;
@@ -242,10 +227,9 @@ bool RoseASTVisitor::VisitSwitchStmt(SwitchStmt *SS) {
   return true;
 }
 
-bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
+bool OmpDartASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
   // Ignore if the statement is in System Header files
-  if (!S->getBeginLoc().isValid() ||
-      !SM->isInMainFile(S->getBeginLoc()))
+  if (!S->getBeginLoc().isValid() || !SM->isInMainFile(S->getBeginLoc()))
     return true;
   if (isaTargetKernel(S)) {
     LastKernel = new Kernel(S, LastFunction->getDecl(), Context);
@@ -253,9 +237,10 @@ bool RoseASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
     Kernels.push_back(LastKernel);
     return true;
   }
-  if (Kernels.size() > 0
-   && Kernels.back()->contains(S->getBeginLoc())) {
-    llvm::outs() << "nested dir at" << S->getBeginLoc().printToString(Context->getSourceManager()) << "\n";
+  if (Kernels.size() > 0 && Kernels.back()->contains(S->getBeginLoc())) {
+    llvm::outs() << "nested dir at"
+                 << S->getBeginLoc().printToString(Context->getSourceManager())
+                 << "\n";
     Kernels.back()->recordNestedDirective(S);
   }
   return true;

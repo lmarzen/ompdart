@@ -21,8 +21,8 @@ bool isPtrOrRefToConst(QualType Type) {
 bool isMemAlloc(const FunctionDecl *Callee) {
   std::string Name = Callee->getNameAsString();
   if (Name == "malloc" || Name == "realloc") {
-      llvm::outs() << "Call to " << Name << " found.\n";
-      return true;
+    llvm::outs() << "Call to " << Name << " found.\n";
+    return true;
   }
   return false;
 }
@@ -31,8 +31,8 @@ bool isMemAlloc(const FunctionDecl *Callee) {
 bool isMemDealloc(const FunctionDecl *Callee) {
   std::string Name = Callee->getNameAsString();
   if (Name == "free") {
-      llvm::outs() << "Call to " << Name << " found.\n";
-      return true;
+    llvm::outs() << "Call to " << Name << " found.\n";
+    return true;
   }
   return false;
 }
@@ -70,16 +70,14 @@ bool usedInStmt(const Stmt *S, const ValueDecl *VD) {
 }
 
 bool isaTargetKernel(const Stmt *S) {
-  return isa<OMPTargetDirective>(S)
-      || isa<OMPTargetParallelDirective>(S)
-      || isa<OMPTargetParallelForDirective>(S)
-      || isa<OMPTargetParallelForSimdDirective>(S)
-      || isa<OMPTargetParallelGenericLoopDirective>(S)
-      || isa<OMPTargetSimdDirective>(S)
-      || isa<OMPTargetTeamsDirective>(S)
-      || isa<OMPTargetTeamsDistributeDirective>(S)
-      || isa<OMPTargetTeamsDistributeParallelForDirective>(S)
-      || isa<OMPTargetTeamsDistributeParallelForSimdDirective>(S)
-      || isa<OMPTargetTeamsDistributeSimdDirective>(S)
-      || isa<OMPTargetTeamsGenericLoopDirective>(S);
+  return isa<OMPTargetDirective>(S) || isa<OMPTargetParallelDirective>(S) ||
+         isa<OMPTargetParallelForDirective>(S) ||
+         isa<OMPTargetParallelForSimdDirective>(S) ||
+         isa<OMPTargetParallelGenericLoopDirective>(S) ||
+         isa<OMPTargetSimdDirective>(S) || isa<OMPTargetTeamsDirective>(S) ||
+         isa<OMPTargetTeamsDistributeDirective>(S) ||
+         isa<OMPTargetTeamsDistributeParallelForDirective>(S) ||
+         isa<OMPTargetTeamsDistributeParallelForSimdDirective>(S) ||
+         isa<OMPTargetTeamsDistributeSimdDirective>(S) ||
+         isa<OMPTargetTeamsGenericLoopDirective>(S);
 }
