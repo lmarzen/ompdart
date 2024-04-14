@@ -13,13 +13,14 @@ class OmpDartASTConsumer : public ASTConsumer {
   OmpDartASTVisitor *Visitor;
   Rewriter TheRewriter;
   std::string OutFilePath;
+  bool Aggressive;
 
   std::vector<DataTracker *> &FunctionTrackers;
   std::vector<Kernel *> &Kernels;
 
 public:
   explicit OmpDartASTConsumer(CompilerInstance *CI,
-                              const std::string *OutFilePath);
+                              const std::string *OutFilePath, bool Aggressive);
 
   virtual void HandleTranslationUnit(ASTContext &Context);
 

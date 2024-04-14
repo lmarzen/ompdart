@@ -7,13 +7,15 @@
 using namespace clang;
 
 OmpDartASTConsumer::OmpDartASTConsumer(CompilerInstance *CI,
-                                       const std::string *OutFilePath)
+                                       const std::string *OutFilePath,
+                                       bool Aggressive)
     : Context(&(CI->getASTContext())), SM(&(Context->getSourceManager())),
       Visitor(new OmpDartASTVisitor(CI)),
       FunctionTrackers(Visitor->getFunctionTrackers()),
       Kernels(Visitor->getTargetRegions()) {
   TheRewriter.setSourceMgr(*SM, Context->getLangOpts());
   this->OutFilePath = *OutFilePath;
+  this->Aggressive = Aggressive;
 }
 
 void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
@@ -25,8 +27,8 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     DT->classifyOffloadedOps();
   }
 
-  // uncomment the line below to enable the feature.
-  // performAggressiveCrossFunctionOffloading(FunctionTrackers);
+  if (Aggressive)
+    performAggressiveCrossFunctionOffloading(FunctionTrackers);
 
   llvm::outs() << "\n=========================================================="
                   "======================\n";

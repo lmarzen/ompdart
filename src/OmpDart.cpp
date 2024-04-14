@@ -6,10 +6,12 @@
 class OmpDartASTAction : public PluginASTAction {
 private:
   std::string OutFilePath;
+  bool Aggressive = false;
+
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
-    return std::make_unique<OmpDartASTConsumer>(&CI, &OutFilePath);
+    return std::make_unique<OmpDartASTConsumer>(&CI, &OutFilePath, Aggressive);
   }
 
   bool ParseArgs(const CompilerInstance &CI,
@@ -30,7 +32,10 @@ protected:
       }
       if (args[i] == "-h" || args[i] == "--help") {
         PrintHelp(llvm::errs());
-       return false;
+        return false;
+      }
+      if (args[i] == "-a" || args[i] == "--aggressive-cross-function") {
+        Aggressive = true;
       }
     }
 
