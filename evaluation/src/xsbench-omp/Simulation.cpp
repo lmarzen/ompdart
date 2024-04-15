@@ -68,6 +68,8 @@ run_event_based_simulation(Inputs in, SimulationData SD,
   const double *SD_unionized_energy_array = SD.unionized_energy_array;
   const    int *SD_index_grid = SD.index_grid;
  
+  double kstart = get_time();
+
   #pragma omp target data \
     map(to: SD_max_num_nucs) \
     map(to: SD_num_nucs[:SD.length_num_nucs])\
@@ -78,8 +80,6 @@ run_event_based_simulation(Inputs in, SimulationData SD,
     map(to: SD_nuclide_grid[:SD.length_nuclide_grid])\
     map(from: verification[:in.lookups])
   {
-
-    double kstart = get_time();
 
     for (int n = 0; n < in.kernel_repeat; n++) {
 
