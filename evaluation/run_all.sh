@@ -13,7 +13,7 @@ make
 rm -rf results
 mkdir results
 echo "  RUNNING BASELINE"
-for i in {1..30)}; do ./bfs_offload 4 ../../data/bfs/graph1MW_6.txt ; done > results/results_baseline.out
+for i in {1..30}; do ./bfs_offload 4 ../../data/bfs/graph1MW_6.txt ; done > results/results_baseline.out
 cat results/results_baseline.out | grep "Compute time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR" (s)" }'
 echo "  RUNNING OMPDART"
 for i in {1..30}; do ./bfs_offload_ompdart 4 ../../data/bfs/graph1MW_6.txt ; done > results/results_ompdart.out
