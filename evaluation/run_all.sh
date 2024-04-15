@@ -10,7 +10,7 @@ cd src
 echo "BUILDING BFS"
 cd bfs
 make clean
-make
+make -j
 rm -rf results
 mkdir results
 echo "BENCHMARKING BFS"
@@ -29,7 +29,7 @@ cd ../
 echo "BUILDING HOTSPOT"
 cd hotspot
 make clean
-make
+make -j
 rm -rf results
 mkdir results
 echo "BENCHMARKING HOTSPOT"
@@ -48,7 +48,7 @@ cd ../
 echo "BUILDING NW"
 cd nw
 make clean
-make
+make -j
 rm -rf results
 mkdir results
 echo "BENCHMARKING NW"
@@ -69,9 +69,9 @@ cd accuracy-omp
 make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING ACCURACY"
@@ -92,9 +92,9 @@ cd ace-omp
 make -f Makefile clean
 make -f Makefile.ompdart_aggressive clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart_aggressive
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart_aggressive
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING ACE"
@@ -115,9 +115,9 @@ cd backprop-omp
 make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING BACKPROP"
@@ -138,9 +138,9 @@ cd clenergy-omp
 make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING CLENERGY"
@@ -161,9 +161,9 @@ cd xsbench-omp
 make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING XSBENCH"
@@ -184,9 +184,9 @@ cd lulesh-omp
 make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
-make -f Makefile
-make -f Makefile.ompdart
-make -f Makefile.naive
+make -j -f Makefile
+make -j -f Makefile.ompdart
+make -j -f Makefile.naive
 rm -rf results
 mkdir results
 echo "BENCHMARKING LULESH"
