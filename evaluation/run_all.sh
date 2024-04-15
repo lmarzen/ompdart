@@ -100,13 +100,13 @@ mkdir results
 echo "BENCHMARKING ACE"
 echo "  RUNNING BASELINE"
 for i in $(seq $N); do ./main 100 ; done > results/results_baseline.out
-cat results/results_baseline.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }';q
+cat results/results_baseline.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }'
 echo "  RUNNING OMPDART"
 for i in $(seq $N); do ./main_ompdart_aggressive 100 ; done > results/results_ompdart.out
-cat results/results_ompdart.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }';q
+cat results/results_ompdart.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }'
 echo "  RUNNING NAIVE"
 for i in $(seq $N); do ./main_naive 100 ; done > results/results_naive.out
-cat results/results_naive.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }';q
+cat results/results_naive.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Exec Time = " sum/NR/1000 " (s)" }'
 cd ../
 
 # backprop
