@@ -140,11 +140,11 @@ run_event_based_simulation(Inputs in, SimulationData SD,
         verification[i] = max_idx+1;
       }
     }
-
-    double kstop = get_time();
-    *kernel_time = (kstop - kstart) / in.kernel_repeat;
-
   } // omp target
+
+  double kstop = get_time();
+  *kernel_time = (kstop - kstart) / in.kernel_repeat;
+
 
   // Host reduces the verification array
   unsigned long long verification_scalar = 0;
