@@ -10,6 +10,7 @@ cd src
 # bfs
 echo "BENCHMARKING BFS"
 cd bfs
+make clean
 make
 rm -rf results
 mkdir results
@@ -27,6 +28,7 @@ cd ../
 # hotspot
 echo "BENCHMARKING HOTSPOT"
 cd hotspot
+make clean
 make
 rm -rf results
 mkdir results
@@ -44,6 +46,7 @@ cd ../
 # nw
 echo "BENCHMARKING NW"
 cd nw
+make clean
 make
 rm -rf results
 mkdir results
@@ -61,6 +64,9 @@ cd ../
 # accuracy
 echo "BENCHMARKING ACCURACY"
 cd accuracy-omp
+make -f Makefile clean
+make -f Makefile.ompdart_aggressive clean
+make -f Makefile.naive clean
 make -f Makefile
 make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
@@ -80,8 +86,11 @@ cd ../
 # ace
 echo "BENCHMARKING ACE"
 cd ace-omp
+make -f Makefile clean
+make -f Makefile.ompdart clean
+make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart
+make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -99,8 +108,11 @@ cd ../
 # backprop
 echo "BENCHMARKING BACKPROP"
 cd backprop-omp
+make -f Makefile clean
+make -f Makefile.ompdart clean
+make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart
+make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -118,8 +130,11 @@ cd ../
 # clenergy
 echo "BENCHMARKING CLENERGY"
 cd clenergy-omp
+make -f Makefile clean
+make -f Makefile.ompdart clean
+make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart
+make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -137,8 +152,11 @@ cd ../
 # xsbench
 echo "BENCHMARKING XSBENCH"
 cd xsbench-omp
+make -f Makefile clean
+make -f Makefile.ompdart clean
+make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart
+make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -156,8 +174,11 @@ cd ../
 # lulesh
 echo "BENCHMARKING LULESH"
 cd lulesh-omp
+make -f Makefile clean
+make -f Makefile.ompdart clean
+make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart
+make -f Makefile.ompdart_aggressive
 make -f Makefile.naive
 rm -rf results
 mkdir results
