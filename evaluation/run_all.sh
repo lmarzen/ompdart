@@ -65,10 +65,10 @@ cd ../
 echo "BENCHMARKING ACCURACY"
 cd accuracy-omp
 make -f Makefile clean
-make -f Makefile.ompdart_aggressive clean
+make -f Makefile.ompdart clean
 make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart_aggressive
+make -f Makefile.ompdart
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -87,7 +87,7 @@ cd ../
 echo "BENCHMARKING ACE"
 cd ace-omp
 make -f Makefile clean
-make -f Makefile.ompdart clean
+make -f Makefile.ompdart_aggressive clean
 make -f Makefile.naive clean
 make -f Makefile
 make -f Makefile.ompdart_aggressive
@@ -112,7 +112,7 @@ make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart_aggressive
+make -f Makefile.ompdart
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -134,7 +134,7 @@ make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart_aggressive
+make -f Makefile.ompdart
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -156,7 +156,7 @@ make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart_aggressive
+make -f Makefile.ompdart
 make -f Makefile.naive
 rm -rf results
 mkdir results
@@ -178,7 +178,7 @@ make -f Makefile clean
 make -f Makefile.ompdart clean
 make -f Makefile.naive clean
 make -f Makefile
-make -f Makefile.ompdart_aggressive
+make -f Makefile.ompdart
 make -f Makefile.naive
 rm -rf results
 mkdir results
