@@ -26,5 +26,11 @@ bash run.sh -i <input_file> -o <output_file>
 Benchmarks used for evaluation are in the sub directory `evaluation`. Some of these require data sets from the Rodinia suite.
 Running the following command will automatically download and place the data sets in the correct path `evaluation/data`
 ```bash
+cd evaluation
 bash download_dataset.sh
+```
+
+The `run_all.sh` script will run each version of each benchmark and tabulate the results.
+```bash
+bash run_all.sh
 ```
