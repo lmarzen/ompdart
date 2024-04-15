@@ -1,7 +1,7 @@
 # OMPDart
 OMPDart - OpenMP Data Reduction Tool
 
-An OpenMP GPU Data Mapping and Reuse Analysis Tool
+OMPDart is a C/C++ static analysis tool for automatically generating efficient OpenMP GPU data mapping.
 
 
 ### Usage
