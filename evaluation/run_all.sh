@@ -76,7 +76,7 @@ echo "  RUNNING BASELINE"
 for i in {1..$N}; do /usr/bin/time -f "real %e" ./main 8192 10000 10 100 ; done > results/results_baseline.out 2>&1
 cat results/results_baseline.out | grep "real" | awk '{ sum += $2 } END { print "Average Elapsed time = " sum/NR " (s)" }'
 echo "  RUNNING OMPDART"
-for i in {1..$N}; do /usr/bin/time -f "real %e" ./main_ompdart_aggressive 8192 10000 10 100 ; done > results/results_ompdart.out 2>&1
+for i in {1..$N}; do /usr/bin/time -f "real %e" ./main_ompdart 8192 10000 10 100 ; done > results/results_ompdart.out 2>&1
 cat results/results_ompdart.out | grep "real" | awk '{ sum += $2 } END { print "Average Elapsed time = " sum/NR " (s)" }'
 echo "  RUNNING NAIVE"
 for i in {1..$N}; do /usr/bin/time -f "real %e" ./main_naive 8192 10000 10 100 ; done > results/results_naive.out 2>&1
@@ -98,7 +98,7 @@ echo "  RUNNING BASELINE"
 for i in {1..$N}; do ./main 100 ; done > results/results_baseline.out
 cat results/results_baseline.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Elapsed time = " sum/NR/1000 " (s)" }';q
 echo "  RUNNING OMPDART"
-for i in {1..$N}; do ./main_ompdart 100 ; done > results/results_ompdart.out
+for i in {1..$N}; do ./main_ompdart_aggressive 100 ; done > results/results_ompdart.out
 cat results/results_ompdart.out | grep "Offload time:" | awk '{ sum += $3 } END { print "Average Elapsed time = " sum/NR/1000 " (s)" }';q
 echo "  RUNNING NAIVE"
 for i in {1..$N}; do ./main_naive 100 ; done > results/results_naive.out
