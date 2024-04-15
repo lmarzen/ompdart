@@ -1,3 +1,5 @@
+#!/bin/bash
+
 DIR=$(dirname "$0")
 LIB="$DIR/build/src/libompdart.so"
 PLUGIN="ompdart"

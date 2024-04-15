@@ -1,2 +1,6 @@
 build
 .vscode
+evaluation/data/*
+!evaluation/data/.gitkeep
+evaluation/rodinia_3.1
+evaluation/rodinia_3.1.tar.bz2

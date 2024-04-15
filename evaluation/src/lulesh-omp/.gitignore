@@ -1,0 +1,7 @@
+lulesh
+lulesh_naive
+lulesh_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite

@@ -1,0 +1,7 @@
+XSBench
+XSBench_naive
+XSBench_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite

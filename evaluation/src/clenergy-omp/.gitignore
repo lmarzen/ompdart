@@ -1,0 +1,7 @@
+clenergy
+clenergy_naive
+clenergy_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite

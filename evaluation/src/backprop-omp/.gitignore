@@ -1,0 +1,8 @@
+main
+main_naive
+main_ompdart
+main_ompdart_old
+*.o
+results
+*.nsys-rep
+*.sqlite

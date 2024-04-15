@@ -1,0 +1,9 @@
+hotspot
+hotspot_offload
+hotspot_offload_naive
+hotspot_offload_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite
+result.txt

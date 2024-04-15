@@ -1,0 +1,9 @@
+needle
+needle_offload
+needle_offload_naive
+needle_offload_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite
+result.txt

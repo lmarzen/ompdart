@@ -1,0 +1,9 @@
+bfs
+bfs_offload
+bfs_offload_naive
+bfs_offload_ompdart
+*.o
+results
+*.nsys-rep
+*.sqlite
+result.txt
