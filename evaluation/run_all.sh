@@ -5,6 +5,8 @@
 
 N=30
 
+cd src
+
 # bfs
 echo "BENCHMARKING BFS"
 cd bfs
@@ -171,6 +173,4 @@ cat results/results_naive.out | grep "Elapsed time" | awk '{ sum += $4 } END { p
 cd ../
 
 
-
-
-
+cd ../
