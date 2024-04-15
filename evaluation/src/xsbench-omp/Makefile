@@ -24,7 +24,7 @@ obj = Main.o io.o Simulation.o GridInit.o XSutils.o Materials.o
 #===============================================================================
 
 # Standard Flags
-CFLAGS := $(EXTRA_CFLAGS) -Wall -I../xsbench-cuda
+CFLAGS := $(EXTRA_CFLAGS) -Wall
           
 # Linker Flags
 LDFLAGS = -lm
@@ -53,22 +53,22 @@ endif
 $(program): $(obj)
 	$(CC) $(CFLAGS) $(obj) -o $@ $(LDFLAGS)
 
-Main.o: ../xsbench-cuda/Main.cu ../xsbench-cuda/XSbench_header.h
+Main.o: Main.cu XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
-Simulation.o: Simulation.cpp ../xsbench-cuda/XSbench_header.h
+Simulation.o: Simulation.cpp XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
-io.o: ../xsbench-cuda/io.cu ../xsbench-cuda/XSbench_header.h
+io.o: io.cu XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
-GridInit.o: ../xsbench-cuda/GridInit.cu ../xsbench-cuda/XSbench_header.h
+GridInit.o: GridInit.cu XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
-Materials.o: ../xsbench-cuda/Materials.cu ../xsbench-cuda/XSbench_header.h
+Materials.o: Materials.cu XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
-XSutils.o: ../xsbench-cuda/XSutils.cu ../xsbench-cuda/XSbench_header.h
+XSutils.o: XSutils.cu XSbench_header.h
 	$(CC) -x c++ $(CFLAGS) -c $< -o $@
 
 clean:
