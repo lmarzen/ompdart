@@ -13,11 +13,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING BFS"
 echo "  PROFILING BASELINE"
-nsys profile ./bfs_offload 4 ../../data/bfs/graph1MW_6.txt
+nsys profile --print-summary ./bfs_offload 4 ../../data/bfs/graph1MW_6.txt
 echo "  PROFILING OMPDART"
-nsys profile ./bfs_offload_ompdart 4 ../../data/bfs/graph1MW_6.txt
+nsys profile --print-summary ./bfs_offload_ompdart 4 ../../data/bfs/graph1MW_6.txt
 echo "  PROFILING NAIVE"
-nsys profile ./bfs_offload_naive 4 ../../data/bfs/graph1MW_6.txt
+nsys profile --print-summary ./bfs_offload_naive 4 ../../data/bfs/graph1MW_6.txt
 cd ../
 
 # hotspot
@@ -29,11 +29,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING HOTSPOT"
 echo "  PROFILING BASELINE"
-nsys profile ./hotspot_offload 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_baseline.out
+nsys profile --print-summary ./hotspot_offload 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_baseline.out
 echo "  PROFILING OMPDART"
-nsys profile ./hotspot_offload_ompdart 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_ompdart.out
+nsys profile --print-summary ./hotspot_offload_ompdart 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_ompdart.out
 echo "  PROFILING NAIVE"
-nsys profile ./hotspot_offload_naive 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_naive.out
+nsys profile --print-summary ./hotspot_offload_naive 1024 1024 2 4 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 results/output_naive.out
 cd ../
 
 # nw
@@ -45,11 +45,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING NW"
 echo "  PROFILING BASELINE"
-nsys profile ./needle_offload 2048 10 2
+nsys profile --print-summary ./needle_offload 2048 10 2
 echo "  PROFILING OMPDART"
-nsys profile ./needle_offload_ompdart 2048 10 2
+nsys profile --print-summary ./needle_offload_ompdart 2048 10 2
 echo "  PROFILING NAIVE"
-nsys profile ./needle_offload_naive 2048 10 2
+nsys profile --print-summary ./needle_offload_naive 2048 10 2
 cd ../
 
 # accuracy
@@ -65,11 +65,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING ACCURACY"
 echo "  PROFILING BASELINE"
-nsys profile /usr/bin/time -f "real %e" ./main 8192 10000 10 100
+nsys profile --print-summary /usr/bin/time -f "real %e" ./main 8192 10000 10 100
 echo "  PROFILING OMPDART"
-nsys profile /usr/bin/time -f "real %e" ./main_ompdart 8192 10000 10 100
+nsys profile --print-summary /usr/bin/time -f "real %e" ./main_ompdart 8192 10000 10 100
 echo "  PROFILING NAIVE"
-nsys profile /usr/bin/time -f "real %e" ./main_naive 8192 10000 10 100
+nsys profile --print-summary /usr/bin/time -f "real %e" ./main_naive 8192 10000 10 100
 cd ../
 
 # ace
@@ -85,11 +85,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING ACE"
 echo "  PROFILING BASELINE"
-nsys profile ./main 100
+nsys profile --print-summary ./main 100
 echo "  PROFILING OMPDART"
-nsys profile ./main_ompdart_aggressive 100
+nsys profile --print-summary ./main_ompdart_aggressive 100
 echo "  PROFILING NAIVE"
-nsys profile ./main_naive 100
+nsys profile --print-summary ./main_naive 100
 cd ../
 
 # backprop
@@ -105,11 +105,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING BACKPROP"
 echo "  PROFILING BASELINE"
-nsys profile ./main 65536
+nsys profile --print-summary ./main 65536
 echo "  PROFILING OMPDART"
-nsys profile ./main_ompdart 65536
+nsys profile --print-summary ./main_ompdart 65536
 echo "  PROFILING NAIVE"
-nsys profile ./main_naive 65536
+nsys profile --print-summary ./main_naive 65536
 cd ../
 
 # clenergy
@@ -125,11 +125,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING CLENERGY"
 echo "  PROFILING BASELINE"
-nsys profile ./clenergy
+nsys profile --print-summary ./clenergy
 echo "  PROFILING OMPDART"
-nsys profile ./clenergy_ompdart
+nsys profile --print-summary ./clenergy_ompdart
 echo "  PROFILING NAIVE"
-nsys profile ./clenergy_naive
+nsys profile --print-summary ./clenergy_naive
 cd ../
 
 # xsbench
@@ -145,11 +145,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING XSBENCH"
 echo "  PROFILING BASELINE"
-nsys profile ./XSBench -s large -m event -r 10
+nsys profile --print-summary ./XSBench -s large -m event -r 10
 echo "  PROFILING OMPDART"
-nsys profile ./XSBench_ompdart -s large -m event -r 10
+nsys profile --print-summary ./XSBench_ompdart -s large -m event -r 10
 echo "  PROFILING NAIVE"
-nsys profile ./XSBench_naive -s large -m event -r 10
+nsys profile --print-summary ./XSBench_naive -s large -m event -r 10
 cd ../
 
 # lulesh
@@ -165,11 +165,11 @@ rm -rf results
 mkdir results
 echo "BENCHMARKING LULESH"
 echo "  PROFILING BASELINE"
-nsys profile ./lulesh -i 100 -s 128 -r 11 -b 1 -c 1
+nsys profile --print-summary ./lulesh -i 100 -s 128 -r 11 -b 1 -c 1
 echo "  PROFILING OMPDART"
-nsys profile ./lulesh_ompdart -i 100 -s 128 -r 11 -b 1 -c 1
+nsys profile --print-summary ./lulesh_ompdart -i 100 -s 128 -r 11 -b 1 -c 1
 echo "  PROFILING NAIVE"
-nsys profile ./lulesh_naive -i 100 -s 128 -r 11 -b 1 -c 1
+nsys profile --print-summary ./lulesh_naive -i 100 -s 128 -r 11 -b 1 -c 1
 cd ../
 
 
