@@ -27,7 +27,7 @@ bash run.sh -i <input_file> -o <output_file>
 cd evaluation
 ```
 
-(Optional Step) We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. Tool generated mappings can generate with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
+We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. Tool-generated mappings can generated with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
 ```bash
 bash generate_ompdart_mappings.sh
 ```
