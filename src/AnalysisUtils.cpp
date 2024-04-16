@@ -21,7 +21,9 @@ void performInterproceduralAnalysis(
             DT->getGlobalAccessModes(false));
       }
     }
+#if DEBUG_LEVEL >= 1
     llvm::outs() << numUpdates << "\n";
+#endif
   } while (numUpdates > 0);
   return;
 }
@@ -44,9 +46,11 @@ void performAggressiveCrossFunctionOffloading(
 
   for (DataTracker *DT : FunctionTrackers) {
     for (int I = 0; I < FunctionTrackers.size(); ++I) {
+#if DEBUG_LEVEL >= 1
       llvm::outs() << "ParamAccessModess for "
                    << DT->getDecl()->getNameAsString() << " calling "
                    << FunctionTrackers[I]->getDecl()->getNameAsString() << "\n";
+#endif
       DT->updateTouchedByCallee(
           FunctionTrackers[I]->getDecl(), ParamAccessModess[I],
           FunctionTrackers[I]->getGlobals(), GlobalAccessModess[I]);

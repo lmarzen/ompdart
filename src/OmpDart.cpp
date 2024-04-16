@@ -17,7 +17,9 @@ protected:
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string> &args) override {
     for (unsigned i = 0, e = args.size(); i != e; ++i) {
-      llvm::errs() << "arg " << i << ": " << args[i] << "\n";
+#if DEBUG_LEVEL >= 1
+      llvm::outs() << "arg " << i << ": " << args[i] << "\n";
+#endif
 
       DiagnosticsEngine &D = CI.getDiagnostics();
       if (args[i] == "-o" || args[i] == "--output") {

@@ -215,8 +215,10 @@ int DataTracker::updateTouchedByCallee(
   for (const CallExpr *CE : CallExprs) {
     if (CE->getDirectCallee()->getDefinition() == Callee) {
       Calls.push_back(CE);
+#if DEBUG_LEVEL >= 1
       llvm::outs() << "--> " << this->getDecl()->getNameAsString() << " calls "
                    << Callee->getNameAsString() << "\n";
+#endif
     }
   }
 
@@ -489,10 +491,14 @@ int DataTracker::recordLoop(const Stmt *S) {
       LA->ExprUpper = InitExprBound;
     }
 
+#if DEBUG_LEVEL >= 1
     llvm::outs() << LA->LitLower << " " << LA->LitUpper << "\n";
+#endif
     if ((LA->LitLower != SIZE_MAX || LA->ExprLower) ||
         (LA->LitUpper != SIZE_MAX || LA->ExprUpper)) {
+#if DEBUG_LEVEL >= 1
       llvm::outs() << "Committing loop bounds\n";
+#endif
       NewEntry.LoopBounds = LA;
     } else {
       delete LA;
@@ -562,7 +568,9 @@ int DataTracker::recordCond(const Stmt *S) {
     } while (Case);
 
   } else {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "Unknown Conditional Type.\n";
+#endif
   }
 
   NewEntry.Loc = S->getEndLoc();
@@ -803,7 +811,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
   std::vector<const AccessInfo *> PrevHostLoopStack;
 
   bool IsArithmeticType = VD->getType()->isArithmeticType();
-  bool isPointerType = VD->getType()->isAnyPointerType();
+  // bool isPointerType = VD->getType()->isAnyPointerType();
   bool MapAlloc = !IsArithmeticType; // arithmetic types can be transferred via
                                      // kernel parameters (firstprivate). all
                                      // others should be mapped. we may promote
@@ -828,7 +836,9 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
     DataValidOnHost = true;
   }
 
+#if DEBUG_LEVEL >= 1
   llvm::outs() << "Beginning Analysis of " << VD->getNameAsString() << "\n";
+#endif
 
   auto PrevHostIt = AccessLog.end();
   auto PrevTgtIt = AccessLog.end();
@@ -843,9 +853,11 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       Bounds.LitLower = SIZE_MAX;
       Bounds.LitUpper = SIZE_MAX;
       const Expr *Idx = It->ArraySubscript->getIdx();
+#if DEBUG_LEVEL >= 1
       llvm::outs() << "Found var ArraySubscript ";
       Idx->printPretty(llvm::outs(), nullptr, Context->getLangOpts());
       llvm::outs() << "\n";
+#endif
       const ImplicitCastExpr *IdxICE = dyn_cast<ImplicitCastExpr>(Idx);
       const DeclRefExpr *IdxDRE =
           IdxICE ? dyn_cast<DeclRefExpr>(*(IdxICE->child_begin())) : nullptr;
@@ -853,8 +865,10 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
       if (IdxDRE) {
         Bounds.VarLower = IdxDRE->getDecl();
         Bounds.VarUpper = Bounds.VarLower;
+#if DEBUG_LEVEL >= 1
         llvm::outs() << "Found var: " << Bounds.VarLower->getNameAsString()
                      << "\n";
+#endif
       } else if (Idx->isEvaluatable(*Context)) {
         Expr::EvalResult Result;
         bool isConstant = Idx->EvaluateAsInt(Result, *Context);
@@ -1124,21 +1138,29 @@ void DataTracker::analyze() {
   SourceLocation ScopeEnd;
   if (FrontCapturingStmt) {
     ScopeBegin = FrontCapturingStmt->getBeginLoc();
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "FrontCapturingStmt is "
                  << ScopeBegin.printToString(Context->getSourceManager())
                  << " in " << FD->getNameAsString() << "\n";
+#endif
   } else {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "FrontCapturingStmt null in " << FD->getNameAsString()
                  << "\n";
+#endif
   }
   if (BackCapturingStmt) {
     ScopeEnd = BackCapturingStmt->getEndLoc();
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "BackCapturingStmt is "
                  << ScopeEnd.printToString(Context->getSourceManager())
                  << " in " << FD->getNameAsString() << "\n";
+#endif
   } else {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "BackCapturingStmt null in " << FD->getNameAsString()
                  << "\n";
+#endif
   }
 
   if (Kernels.size() > 0) {

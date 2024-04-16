@@ -28,8 +28,10 @@ struct ClauseDirInfo {
 const Stmt *getSemiTerminatedStmt(ASTContext &Context, const Stmt *S) {
   const Stmt *CurrentStmt = S;
   while (true) {
+#if DEBUG_LEVEL >= 1
     CurrentStmt->printPretty(llvm::outs(), NULL, PrintingPolicy(LangOptions()));
     llvm::outs() << "end\n";
+#endif
     const auto &ImmediateParents = Context.getParents(*CurrentStmt);
     if (ImmediateParents.size() == 0)
       return nullptr;
@@ -299,7 +301,7 @@ void rewriteUpdateTo(Rewriter &R, ASTContext &Context,
     } else {
       // Inserting after a semi-terminated statement.
       InsertLoc = getSemiTerminatedStmtEndLoc(SM, Update.FullStmt);
-
+#if DEBUG_LEVEL >= 1
       llvm::outs() << "Update.FullStmt...";
       Update.FullStmt->printPretty(llvm::outs(), nullptr,
                                    PrintingPolicy(LangOptions()));
@@ -307,6 +309,7 @@ void rewriteUpdateTo(Rewriter &R, ASTContext &Context,
       llvm::outs() << "InsertLoc..."
                    << InsertLoc.printToString(Context.getSourceManager())
                    << "\n";
+#endif
 
       UpdateToDirective = "\n";
       UpdateToDirective += ParentIndent + IndentStep;

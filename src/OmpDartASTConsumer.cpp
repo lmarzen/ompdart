@@ -30,15 +30,20 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
   if (Aggressive)
     performAggressiveCrossFunctionOffloading(FunctionTrackers);
 
+#if DEBUG_LEVEL >= 1
   llvm::outs() << "\n=========================================================="
                   "======================\n";
+#endif
   for (DataTracker *DT : FunctionTrackers) {
     // DT->classifyOffloadedOps();
+#if DEBUG_LEVEL >= 1
     DT->printAccessLog();
+#endif
     // computes data mappings for the scope of single target regions
     DT->naiveAnalyze();
     // computes data mappings
     DT->analyze();
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "globals\n";
     for (auto Global : DT->getGlobals()) {
       llvm::outs() << "  " << Global->getNameAsString() << "  "
@@ -49,8 +54,10 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
       llvm::outs() << "  " << Local->getNameAsString() << "  " << Local->getID()
                    << "\n";
     }
+#endif
   }
 
+#if DEBUG_LEVEL >= 1
   llvm::outs() << "Number of Target Data Regions: " << Kernels.size() << "\n";
 
   // Print naive kernel information
@@ -60,15 +67,19 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
   }
 
   int I = 0;
+#endif
   for (DataTracker *DT : FunctionTrackers) {
     const TargetDataRegion *Scope = DT->getTargetDataScope();
     if (!Scope)
       continue;
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "\nTargetScope #" << I++;
     Scope->print(llvm::outs(), *SM);
+#endif
     rewriteTargetDataRegion(TheRewriter, Context, Scope);
   }
 
+#if DEBUG_LEVEL >= 1
   for (DataTracker *DT : FunctionTrackers) {
     const FunctionDecl *funcDecl = DT->getDecl();
     Stmt *funcBody = funcDecl->getBody();
@@ -77,6 +88,7 @@ void OmpDartASTConsumer::HandleTranslationUnit(ASTContext &Context) {
     auto langOpt = Context.getLangOpts();
     sourceCFG->dump(langOpt, true);
   }
+#endif
 
   FileID FID = SM->getMainFileID();
   if (OutFilePath.empty()) {

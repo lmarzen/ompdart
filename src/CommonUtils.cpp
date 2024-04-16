@@ -1,6 +1,5 @@
 #include "CommonUtils.h"
 
-#include "clang/AST/ParentMapContext.h"
 #include "clang/AST/StmtOpenMP.h"
 
 using namespace clang;
@@ -21,7 +20,9 @@ bool isPtrOrRefToConst(QualType Type) {
 bool isMemAlloc(const FunctionDecl *Callee) {
   std::string Name = Callee->getNameAsString();
   if (Name == "malloc" || Name == "realloc") {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "Call to " << Name << " found.\n";
+#endif
     return true;
   }
   return false;
@@ -31,7 +32,9 @@ bool isMemAlloc(const FunctionDecl *Callee) {
 bool isMemDealloc(const FunctionDecl *Callee) {
   std::string Name = Callee->getNameAsString();
   if (Name == "free") {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "Call to " << Name << " found.\n";
+#endif
     return true;
   }
   return false;
