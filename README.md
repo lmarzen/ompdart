@@ -34,3 +34,9 @@ The `run_all.sh` script will run each version of each benchmark and tabulate the
 ```bash
 bash run_all.sh
 ```
+
+We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. You can regenerate these mappings with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
+```bash
+bash generate_ompdart_mappings.sh
+```
+
