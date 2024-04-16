@@ -5,3 +5,4 @@ lulesh_ompdart
 results
 *.nsys-rep
 *.sqlite
+*.new

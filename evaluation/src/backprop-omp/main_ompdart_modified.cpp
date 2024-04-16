@@ -65,7 +65,7 @@ int bpnn_train_kernel(BPNN *net, float *eo, float *eh)
   float* input_prev_weights = input_weights_prev_one_dim;
   float* hidden_delta = net->hidden_delta;
 
-  #pragma omp target data map(alloc:partial_sum[0:num_blocks*WIDTH]) map(to:input[0:in+1],input_prev_weights[0:(in+1)*(hid+1)],hidden_delta[0:hid+1]) map(tofrom:input_weights[0:(in+1)*(hid+1)])
+  #pragma omp target data map(to:partial_sum[0:num_blocks*WIDTH],input[0:in+1],input_prev_weights[0:(in+1)*(hid+1)],hidden_delta[0:hid+1]) map(tofrom:input_weights[0:(in+1)*(hid+1)])
   {
     #pragma omp target teams num_teams(num_blocks) thread_limit(BLOCK_SIZE*BLOCK_SIZE) firstprivate(hid)
     {

@@ -145,9 +145,8 @@ int main(int argc, char** argv) {
   #pragma omp target data map(alloc:atominfo[0:MAXATOMS]) map(to:volsize) map(from:energy[0:volmem])
   {
     #pragma omp target teams distribute parallel for simd firstprivate(volmem)
-    for (int i = 0; i < volmem; i++) {
+    for (int i = 0; i < volmem; i++)
       energy[i] = 0.f;
-    }
   
     int atomstart;
     for (atomstart=0; atomstart<atomcount; atomstart+=MAXATOMS) {   
@@ -166,9 +165,9 @@ int main(int argc, char** argv) {
       // copy the atoms to the GPU
       wkf_timer_start(copytimer);
       copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo);
+      #pragma omp target update to(atominfo[0:runatoms])
       // if (copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo)) 
       //  return -1;
-      #pragma omp target update to(atominfo[0:runatoms])
       wkf_timer_stop(copytimer);
       copytotal += wkf_timer_time(copytimer);
   

@@ -6,3 +6,4 @@ main_ompdart_old
 results
 *.nsys-rep
 *.sqlite
+*.new

@@ -5,3 +5,4 @@ clenergy_ompdart
 results
 *.nsys-rep
 *.sqlite
+*.new

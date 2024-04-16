@@ -7,3 +7,4 @@ results
 *.nsys-rep
 *.sqlite
 result.txt
+*.new

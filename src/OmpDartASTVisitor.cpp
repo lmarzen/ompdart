@@ -100,8 +100,9 @@ bool OmpDartASTVisitor::VisitCallExpr(CallExpr *CE) {
       AccessType = A_RDONLY;
     }
 
-    if (isMemDealloc(Callee)) {
-      // No need for data transfer when freeing a memory.
+    if (isMemDealloc(Callee) || isMemAlloc(Callee)) {
+      // No need for data transfer when allocating (excluding calloc) or freeing
+      // a memory.
       AccessType = A_NOP;
     }
     LastFunction->recordAccess(VD, DRE->getLocation(), CE, AccessType, true);
@@ -238,9 +239,11 @@ bool OmpDartASTVisitor::VisitOMPExecutableDirective(OMPExecutableDirective *S) {
     return true;
   }
   if (Kernels.size() > 0 && Kernels.back()->contains(S->getBeginLoc())) {
+#if DEBUG_LEVEL >= 1
     llvm::outs() << "nested dir at"
                  << S->getBeginLoc().printToString(Context->getSourceManager())
                  << "\n";
+#endif
     Kernels.back()->recordNestedDirective(S);
   }
   return true;

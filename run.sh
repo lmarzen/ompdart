@@ -5,7 +5,7 @@ LIB="$DIR/build/src/libompdart.so"
 PLUGIN="ompdart"
 
 CFLAGS=-fopenmp
-COMMAND="clang $(CFLAGS) -Xclang -load -Xclang $LIB -Xclang -plugin -Xclang $PLUGIN"
+COMMAND="clang $CFLAGS -Xclang -load -Xclang $LIB -Xclang -plugin -Xclang $PLUGIN"
 
 while [ "$1" != "" ]; do
     case $1 in

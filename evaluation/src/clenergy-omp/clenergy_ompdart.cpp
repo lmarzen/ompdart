@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
 
   int iterations=0;
 
-  #pragma omp target data map(alloc:atominfo[0:MAXATOMS]) map(to:volsize) map(from:energy[0:volmem])
+  #pragma omp target data map(alloc:atominfo) map(to:volsize) map(from:energy)
   {
     #pragma omp target teams distribute parallel for simd firstprivate(volmem)
     for (int i = 0; i < volmem; i++)
@@ -164,9 +164,10 @@ int main(int argc, char** argv) {
   
       // copy the atoms to the GPU
       wkf_timer_start(copytimer);
-      if (copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo)) 
-        return -1;
-      #pragma omp target update to(atominfo[0:MAXATOMS])
+      copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo);
+      #pragma omp target update to(atominfo)
+      // if (copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo)) 
+      //  return -1;
       wkf_timer_stop(copytimer);
       copytotal += wkf_timer_time(copytimer);
   

@@ -162,8 +162,9 @@ int main(int argc, char** argv) {
 
     // copy the atoms to the GPU
     wkf_timer_start(copytimer);
-    if (copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo)) 
-      return -1;
+    copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo);
+    // if (copyatoms(atoms + 4*atomstart, runatoms, 0*gridspacing, atominfo)) 
+    //  return -1;
     wkf_timer_stop(copytimer);
     copytotal += wkf_timer_time(copytimer);
 
