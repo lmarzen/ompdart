@@ -23,6 +23,10 @@ bash run.sh -i <input_file> -o <output_file>
 
 ### Evaluation
 
+```bash
+cd evaluation
+```
+
 (Optional Step) We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. Tool generated mappings can generate with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
 ```bash
 bash generate_ompdart_mappings.sh
@@ -31,7 +35,6 @@ bash generate_ompdart_mappings.sh
 Benchmarks used for evaluation are in the sub directory `evaluation`. Some of these require data sets from the Rodinia suite.
 Running the following command will automatically download and place the data sets in the correct path `evaluation/data`
 ```bash
-cd evaluation
 bash download_dataset.sh
 ```
 
