@@ -23,6 +23,11 @@ bash run.sh -i <input_file> -o <output_file>
 
 ### Evaluation
 
+(Optional Step) We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. Tool generated mappings can generate with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
+```bash
+bash generate_ompdart_mappings.sh
+```
+
 Benchmarks used for evaluation are in the sub directory `evaluation`. Some of these require data sets from the Rodinia suite.
 Running the following command will automatically download and place the data sets in the correct path `evaluation/data`
 ```bash
@@ -30,13 +35,13 @@ cd evaluation
 bash download_dataset.sh
 ```
 
-The `run_all.sh` script will run each version of each benchmark and tabulate the results.
+The `run_all.sh` script will build and run each version of each benchmark to gather execution time results.
 ```bash
 bash run_all.sh
 ```
 
-We provide the tool generated mappings in this repository, see source files with _ompdart in the file name. You can regenerate these mappings with `generate_ompdart_mappings.sh` which will run OMPDart on each benchmark and generate source code files with the .new extension.
+The `profile_all.sh` script will build and profile each version of each benchmark with NVIDIA Nsight Systems, used to results on data transfer time and CUDA memcpy calls.
 ```bash
-bash generate_ompdart_mappings.sh
+bash profile_all.sh
 ```
 
