@@ -696,6 +696,8 @@ const AccessInfo *DataTracker::findOutermostIndexingLoop(
     if (insertionLocLim != AccessLog.end() &&
         SM.isBeforeInTranslationUnit((*Rit)->Loc, insertionLocLim->Loc))
       break;
+    if (!(*Rit)->LoopBounds)
+      continue;
     const ValueDecl *IndexValueDecl = (*Rit)->LoopBounds->IndexDecl;
     if (!IndexValueDecl)
       continue;
@@ -729,7 +731,7 @@ const Stmt *DataTracker::findOutermostCapturingStmt(const Stmt *ContainingStmt,
 
     const Stmt *ParentStmt = ImmediateParents[0].get<Stmt>();
     if (!ParentStmt) {
-      return nullptr;
+      return CurrentStmt;
     }
     if (ParentStmt == ContainingStmt)
       return CurrentStmt;
@@ -1019,7 +1021,7 @@ void DataTracker::analyzeValueDecl(const ValueDecl *VD) {
           // used.
           DiagnosticsEngine &DiagEngine = Context->getDiagnostics();
           const unsigned int DiagID = DiagEngine.getCustomDiagID(
-              DiagnosticsEngine::Error,
+              DiagnosticsEngine::Warning,
               "declaration of '%0' is captured within a target data region in "
               "which it is being utilized");
           const unsigned int NoteID = DiagEngine.getCustomDiagID(
