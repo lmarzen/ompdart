@@ -17,7 +17,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 # Use the same C++ standard as LLVM
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "")
-set(CMAKE_CXX_FLAGS "-Wall -stdlib=libc++ ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
 
 # LLVM/Clang is normally built without RTTI. Be consistent with that.
 if(NOT LLVM_ENABLE_RTTI)
