@@ -4,7 +4,7 @@ OMPDart - OpenMP Data Reduction Tool
 OMPDart is a C/C++ static analysis tool for automatically generating efficient OpenMP GPU data mapping.
 
 
-### Usage
+## Usage
 
 Dependencies:
 - Clang 16+
@@ -21,7 +21,7 @@ bash run.sh -i <input_file> -o <output_file>
 ```
 
 
-### Evaluation
+## Evaluation
 
 ```bash
 cd evaluation
@@ -48,7 +48,7 @@ The `profile_all.sh` script will build and profile each version of each benchmar
 bash profile_all.sh
 ```
 
-### Citation
+## Citation
 
 If you use this code for your research, please cite the following work:
 
