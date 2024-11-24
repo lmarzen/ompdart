@@ -54,7 +54,7 @@ If you use this code for your research, please cite the following work:
 
 > Luke Marzen, Akash Dutta, and Ali Jannesari. 2024. Static Generation of Efficient OpenMP Offload Data Mappings. In Proceedings of the International Conference for High Performance Computing, Networking, Storage, and Analysis (SC '24). IEEE Press, Article 35, 1–15. https://doi.org/10.1109/SC41406.2024.00041
 
-'''tex
+```tex
 @inproceedings{10.1109/SC41406.2024.00041,
   author = {Marzen, Luke and Dutta, Akash and Jannesari, Ali},
   title = {Static Generation of Efficient OpenMP Offload Data Mappings},
@@ -70,4 +70,4 @@ If you use this code for your research, please cite the following work:
   location = {Atlanta, GA, USA},
   series = {SC '24}
 }
-'''
+```
